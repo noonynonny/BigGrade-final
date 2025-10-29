@@ -15,6 +15,29 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .container {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    
+    .app-wrapper {
+      width: 90%;
+      max-width: 1200px;
+      height: 80vh;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      position: relative;
     }
     
     #app-frame {
@@ -22,84 +45,206 @@
       height: 100%;
       border: none;
       display: block;
+      background: white;
     }
     
-    /* Hide any Base44 branding that might appear */
-    .base44-branding,
-    [class*="base44"],
-    [id*="base44"] {
-      display: none !important;
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #666;
+      font-size: 18px;
+      z-index: 10;
+    }
+    
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #e74c3c;
+      font-size: 16px;
+      max-width: 400px;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .retry-button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+    
+    .retry-button:hover {
+      background: #5a6fd8;
     }
   </style>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
 </head>
 <body>
-  <iframe 
-    id="app-frame" 
-    src="https://biggrade0.base44.app"
-    allow="camera; microphone; clipboard-read; clipboard-write"
-    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads"
-  ></iframe>
-  
+  <div class="container">
+    <div class="app-wrapper">
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>Loading BigGrade...</div>
+      </div>
+      
+      <div class="error-message" id="error-message">
+        <h3>Unable to load BigGrade</h3>
+        <p>There was an issue loading the application. Please check your internet connection and try again.</p>
+        <button class="retry-button" onclick="retryLoad()">Retry</button>
+      </div>
+      
+      <iframe 
+        id="app-frame" 
+        src="https://biggrade0.base44.app"
+        allow="camera; microphone; clipboard-read; clipboard-write"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+        style="display: none;"
+      ></iframe>
+    </div>
+  </div>
+
   <script>
-    // Remove Base44 branding if any appears
-    (function() {
-      'use strict';
-      
-      // Monitor for any Base44 branding elements
-      const observer = new MutationObserver(() => {
-        document.querySelectorAll('*').forEach(el => {
-          const text = (el.textContent || '').toLowerCase();
-          const classes = (el.className || '').toLowerCase();
-          const id = (el.id || '').toLowerCase();
-          
-          if (text.includes('base44') || classes.includes('base44') || id.includes('base44')) {
-            if (el.id !== 'app-frame') {
-              el.remove();
-            }
-          }
-        });
-      });
-      
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-      
-      // Try to communicate with iframe to remove branding inside
+    let loadTimeout;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    function showLoading() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('error-message').style.display = 'none';
+    }
+    
+    function showError() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error-message').style.display = 'block';
+    }
+    
+    function showApp() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error-message').style.display = 'none';
+      document.getElementById('app-frame').style.display = 'block';
+    }
+    
+    function retryLoad() {
+      if (retryCount < maxRetries) {
+        retryCount++;
+        showLoading();
+        const frame = document.getElementById('app-frame');
+        frame.src = frame.src; // Force reload
+        setupFrameMonitoring();
+      } else {
+        showError();
+        document.querySelector('#error-message p').textContent = 
+          'Maximum retry attempts reached. Please refresh the page or try again later.';
+      }
+    }
+    
+    function setupFrameMonitoring() {
       const frame = document.getElementById('app-frame');
       
-      frame.addEventListener('load', () => {
-        try {
-          // Attempt to inject CSS into iframe (will only work if same-origin)
-          const iframeDoc = frame.contentDocument || frame.contentWindow.document;
-          const style = iframeDoc.createElement('style');
-          style.textContent = `
-            *[class*="base44"],
-            *[id*="base44"],
-            a[href*="base44"] {
-              display: none !important;
-            }
-          `;
-          iframeDoc.head.appendChild(style);
-          
-          // Run cleanup script
-          const script = iframeDoc.createElement('script');
-          script.textContent = `
-            setInterval(() => {
-              document.querySelectorAll('*').forEach(el => {
-                if ((el.textContent || '').toLowerCase().includes('base44')) {
-                  el.remove();
-                }
-              });
-            }, 100);
-          `;
-          iframeDoc.body.appendChild(script);
-        } catch (e) {
-          // Cross-origin restrictions prevent direct manipulation
-          console.log('Cannot access iframe content (cross-origin)');
+      // Clear any existing timeout
+      if (loadTimeout) {
+        clearTimeout(loadTimeout);
+      }
+      
+      // Set a timeout for loading
+      loadTimeout = setTimeout(() => {
+        console.warn('Frame loading timeout');
+        if (retryCount < maxRetries) {
+          retryLoad();
+        } else {
+          showError();
         }
+      }, 15000); // 15 second timeout
+      
+      frame.addEventListener('load', () => {
+        console.log('Frame loaded successfully');
+        clearTimeout(loadTimeout);
+        
+        // Wait a moment for the content to render
+        setTimeout(() => {
+          try {
+            // Check if the frame has content
+            const frameDoc = frame.contentDocument || frame.contentWindow.document;
+            if (frameDoc && frameDoc.body && frameDoc.body.children.length > 0) {
+              showApp();
+            } else {
+              console.warn('Frame appears to be empty');
+              retryLoad();
+            }
+          } catch (e) {
+            // Cross-origin restrictions - assume it loaded if we got here
+            console.log('Frame loaded (cross-origin, cannot inspect content)');
+            showApp();
+          }
+        }, 1000);
       });
-    })();
+      
+      frame.addEventListener('error', (e) => {
+        console.error('Frame loading error:', e);
+        clearTimeout(loadTimeout);
+        showError();
+      });
+    }
+    
+    // Initialize frame monitoring
+    document.addEventListener('DOMContentLoaded', () => {
+      showLoading();
+      setupFrameMonitoring();
+    });
+    
+    // Handle console errors from the frame
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'console-error') {
+        console.warn('Frame console error:', event.data.error);
+      }
+    });
+    
+    // Prevent common Base44 conflicts
+    window.addEventListener('error', (e) => {
+      // Suppress specific Base44-related errors that don't affect functionality
+      if (e.message && (
+        e.message.includes('recorder') ||
+        e.message.includes('message port') ||
+        e.message.includes('insertBefore')
+      )) {
+        e.preventDefault();
+        console.warn('Suppressed Base44-related error:', e.message);
+      }
+    }, true);
+    
+    // Override some problematic global functions that might interfere
+    if (typeof window.recorder === 'undefined') {
+      window.recorder = null;
+    }
   </script>
 </body>
 </html>

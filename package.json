@@ -1,8 +1,19 @@
 {
-  "name": "biggrade-netlify-proxy",
+  "name": "biggrade-final",
   "version": "1.0.0",
-  "description": "Netlify proxy for BigGrade Base44 app",
-  "dependencies": {
-    "node-fetch": "^2.6.7"
+  "description": "BigGrade project - Base44 embed with Netlify hosting",
+  "main": "public/index.html",
+  "scripts": {
+    "start": "http-server . -p 8080 -c-1 -o",
+    "dev": "http-server public -p 8080 -c-1 -o",
+    "build": "echo 'Static site - no build needed'",
+    "serve": "npx serve public -l 3000"
+  },
+  "keywords": ["base44", "embed", "netlify"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "serve": "^14.2.1"
   }
 }
