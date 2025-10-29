@@ -4,21 +4,36 @@ const TARGET_URL = 'https://biggrade0.base44.app';
 
 exports.handler = async (event, context) => {
   try {
-    // Get the path from the event
-    const path = event.path.replace('/.netlify/functions/proxy', '') || '/';
+    // Extract the actual path - handle both direct access and through redirects
+    let path = event.path || '/';
+    
+    // Remove the function path prefix if present
+    path = path.replace('/.netlify/functions/proxy', '');
+    
+    // If path is empty, default to root
+    if (!path || path === '') {
+      path = '/';
+    }
+    
     const queryString = event.rawQuery ? `?${event.rawQuery}` : '';
     const targetUrl = `${TARGET_URL}${path}${queryString}`;
     
-    console.log(`Proxying: ${event.httpMethod} ${targetUrl}`);
+    console.log(`[Proxy] ${event.httpMethod} ${targetUrl}`);
 
-    // Prepare headers
+    // Prepare headers - forward most headers from the original request
     const headers = {
-      'user-agent': event.headers['user-agent'] || 'Mozilla/5.0',
+      'user-agent': event.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       'accept': event.headers['accept'] || '*/*',
       'accept-language': event.headers['accept-language'] || 'en-US,en;q=0.9',
+      'accept-encoding': 'gzip, deflate, br',
     };
 
-    // Add cookies if present
+    // Add referer and origin to make requests look legitimate
+    if (event.headers['referer']) {
+      headers['referer'] = event.headers['referer'].replace(event.headers.host, 'biggrade0.base44.app');
+    }
+
+    // Forward cookies
     if (event.headers['cookie']) {
       headers['cookie'] = event.headers['cookie'];
     }
@@ -27,7 +42,7 @@ exports.handler = async (event, context) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       controller.abort();
-    }, 8000); // 8 second timeout
+    }, 10000); // 10 second timeout
 
     const response = await fetch(targetUrl, {
       method: event.httpMethod,
@@ -39,70 +54,58 @@ exports.handler = async (event, context) => {
 
     clearTimeout(timeout);
 
+    console.log(`[Proxy] Response: ${response.status} ${response.statusText}`);
+
     // Get response body
     const contentType = response.headers.get('content-type') || '';
     const buffer = await response.buffer();
     
-    // Process text content (HTML, CSS, JS)
-    if (contentType.includes('text/html') || 
-        contentType.includes('text/css') || 
+    // Process text content (HTML, CSS, JS, JSON)
+    if (contentType.includes('text/') || 
         contentType.includes('application/javascript') ||
-        contentType.includes('text/javascript')) {
+        contentType.includes('application/json') ||
+        contentType.includes('application/x-javascript')) {
       
       let content = buffer.toString('utf-8');
       
-      // Replace Base44 URLs with relative URLs
-      content = content.replace(/https:\/\/biggrade0\.base44\.app/g, '');
+      // Replace Base44 URLs with our domain
+      content = content.replace(/https:\/\/biggrade0\.base44\.app/g, `https://${event.headers.host}`);
       content = content.replace(/biggrade0\.base44\.app/g, event.headers.host || '');
       
-      // Remove Base44 branding for HTML
+      // For HTML, inject Base44 removal code
       if (contentType.includes('text/html')) {
-        const hideBase44CSS = `
+        const antiBase44Script = `
           <style>
             /* Hide Base44 branding */
             *[class*="base44"],
             *[id*="base44"],
-            *[data-base44],
             *[class*="Base44"],
             *[id*="Base44"] {
               display: none !important;
-              visibility: hidden !important;
-              opacity: 0 !important;
-              pointer-events: none !important;
             }
-            
-            a[href*="base44"],
-            a[href*="Base44"] {
+            a[href*="base44"] {
               display: none !important;
-              pointer-events: none !important;
             }
           </style>
           <script>
             (function() {
               'use strict';
-              
-              const KILL_INTERVAL = 100;
-              const SEARCH_TERMS = ['base44', 'Base44', 'BASE44'];
-              
-              function removeBase44Elements() {
+              const removeBase44 = () => {
                 try {
                   document.querySelectorAll('*').forEach(el => {
                     const text = (el.textContent || '').toLowerCase();
-                    
-                    for (const term of SEARCH_TERMS) {
-                      if (text.includes(term.toLowerCase())) {
-                        const parent = el.parentElement;
-                        if (parent) {
-                          el.remove();
-                          return;
-                        }
+                    if (text.includes('base44') && el.children.length === 0) {
+                      const parent = el.parentElement;
+                      if (parent && parent.children.length === 1) {
+                        parent.remove();
+                      } else {
+                        el.remove();
                       }
                     }
                     
                     if (el.attributes) {
                       for (let attr of el.attributes) {
-                        const attrValue = (attr.value || '').toLowerCase();
-                        if (attrValue.includes('base44')) {
+                        if ((attr.value || '').toLowerCase().includes('base44')) {
                           el.remove();
                           return;
                         }
@@ -115,55 +118,60 @@ exports.handler = async (event, context) => {
                       iframe.remove();
                     }
                   });
-                  
                 } catch (e) {
-                  console.error('Base44 removal error:', e);
+                  console.error('Cleanup error:', e);
                 }
-              }
+              };
               
               if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', removeBase44Elements);
+                document.addEventListener('DOMContentLoaded', removeBase44);
               } else {
-                removeBase44Elements();
+                removeBase44();
               }
               
-              window.addEventListener('load', removeBase44Elements);
-              setInterval(removeBase44Elements, KILL_INTERVAL);
+              window.addEventListener('load', removeBase44);
+              setInterval(removeBase44, 200);
               
-              const observer = new MutationObserver(removeBase44Elements);
+              const observer = new MutationObserver(removeBase44);
               observer.observe(document.documentElement, {
                 childList: true,
                 subtree: true
               });
-              
             })();
           </script>
         `;
         
         if (content.includes('</head>')) {
-          content = content.replace('</head>', hideBase44CSS + '</head>');
+          content = content.replace('</head>', antiBase44Script + '</head>');
         } else if (content.includes('<body>')) {
-          content = content.replace('<body>', '<body>' + hideBase44CSS);
-        } else {
-          content = hideBase44CSS + content;
+          content = content.replace('<body>', '<body>' + antiBase44Script);
         }
       }
       
+      // Build response headers
+      const responseHeaders = {
+        'Content-Type': contentType,
+        'Cache-Control': response.headers.get('cache-control') || 'no-cache',
+      };
+
+      // Forward set-cookie headers if present
+      const setCookie = response.headers.get('set-cookie');
+      if (setCookie) {
+        responseHeaders['set-cookie'] = setCookie;
+      }
+
       return {
         statusCode: response.status,
-        headers: {
-          'Content-Type': contentType,
-          'Cache-Control': 'no-cache',
-        },
+        headers: responseHeaders,
         body: content
       };
     } else {
-      // Binary content (images, etc.)
+      // Binary content (images, fonts, etc.)
       return {
         statusCode: response.status,
         headers: {
           'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=3600',
+          'Cache-Control': response.headers.get('cache-control') || 'public, max-age=3600',
         },
         body: buffer.toString('base64'),
         isBase64Encoded: true
@@ -171,7 +179,7 @@ exports.handler = async (event, context) => {
     }
 
   } catch (error) {
-    console.error('Proxy error:', error);
+    console.error('[Proxy] Error:', error.message);
     
     // Return a user-friendly error page
     return {
@@ -184,7 +192,8 @@ exports.handler = async (event, context) => {
         <html>
         <head>
           <meta charset="utf-8">
-          <title>BigGrade - Loading Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>BigGrade - Connection Error</title>
           <style>
             body {
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -193,37 +202,55 @@ exports.handler = async (event, context) => {
               align-items: center;
               min-height: 100vh;
               margin: 0;
-              background: #f5f5f5;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             }
             .error-container {
               text-align: center;
               padding: 40px;
               background: white;
-              border-radius: 8px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              border-radius: 12px;
+              box-shadow: 0 10px 40px rgba(0,0,0,0.2);
               max-width: 500px;
+              margin: 20px;
             }
-            h1 { color: #e74c3c; }
-            p { color: #666; line-height: 1.6; }
+            h1 { color: #e74c3c; margin-bottom: 10px; }
+            p { color: #666; line-height: 1.6; margin: 15px 0; }
+            .error-code { 
+              font-family: monospace; 
+              background: #f8f9fa; 
+              padding: 10px; 
+              border-radius: 4px;
+              font-size: 14px;
+              color: #e74c3c;
+              margin: 20px 0;
+            }
             .retry-btn {
               margin-top: 20px;
-              padding: 10px 20px;
-              background: #3498db;
+              padding: 12px 24px;
+              background: #667eea;
               color: white;
               border: none;
-              border-radius: 4px;
+              border-radius: 6px;
               cursor: pointer;
               font-size: 16px;
+              font-weight: 500;
+              transition: background 0.3s;
             }
-            .retry-btn:hover { background: #2980b9; }
+            .retry-btn:hover { background: #5568d3; }
           </style>
         </head>
         <body>
           <div class="error-container">
             <h1>⚠️ Connection Error</h1>
-            <p>Unable to load BigGrade. The proxy service encountered an error.</p>
-            <p><strong>Error:</strong> ${error.message}</p>
-            <button class="retry-btn" onclick="location.reload()">Retry</button>
+            <p>Unable to connect to BigGrade. The proxy service encountered an error while trying to reach the application.</p>
+            <div class="error-code">${error.message}</div>
+            <p>This could be due to:</p>
+            <ul style="text-align: left; color: #666;">
+              <li>Network connectivity issues</li>
+              <li>The source application being temporarily unavailable</li>
+              <li>Request timeout</li>
+            </ul>
+            <button class="retry-btn" onclick="location.reload()">🔄 Retry</button>
           </div>
         </body>
         </html>
