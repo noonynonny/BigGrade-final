@@ -16,8 +16,6 @@ exports.handler = async (event, context) => {
       'user-agent': event.headers['user-agent'] || 'Mozilla/5.0',
       'accept': event.headers['accept'] || '*/*',
       'accept-language': event.headers['accept-language'] || 'en-US,en;q=0.9',
-      'referer': TARGET_URL,
-      'origin': TARGET_URL,
     };
 
     // Add cookies if present
@@ -25,28 +23,21 @@ exports.handler = async (event, context) => {
       headers['cookie'] = event.headers['cookie'];
     }
 
-    // Fetch from target
+    // Fetch from target with timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 8000); // 8 second timeout
+
     const response = await fetch(targetUrl, {
       method: event.httpMethod,
       headers: headers,
       body: event.httpMethod !== 'GET' && event.httpMethod !== 'HEAD' ? event.body : undefined,
-      redirect: 'manual'
+      redirect: 'follow',
+      signal: controller.signal
     });
 
-    // Handle redirects
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-      if (location) {
-        const newLocation = location.replace(TARGET_URL, '');
-        return {
-          statusCode: response.status,
-          headers: {
-            'Location': newLocation
-          },
-          body: ''
-        };
-      }
-    }
+    clearTimeout(timeout);
 
     // Get response body
     const contentType = response.headers.get('content-type') || '';
@@ -85,35 +76,26 @@ exports.handler = async (event, context) => {
               display: none !important;
               pointer-events: none !important;
             }
-            
-            [style*="position: fixed"],
-            [style*="position:fixed"] {
-              display: none !important;
-            }
-            
-            [style*="bottom"][style*="right"],
-            [style*="bottom:"][style*="right:"] {
-              display: none !important;
-            }
           </style>
           <script>
             (function() {
               'use strict';
               
-              const KILL_INTERVAL = 50;
-              const SEARCH_TERMS = ['base44', 'Base44', 'BASE44', 'edit with', 'Edit with', 'remix', 'Remix'];
+              const KILL_INTERVAL = 100;
+              const SEARCH_TERMS = ['base44', 'Base44', 'BASE44'];
               
-              function nukeBase44() {
+              function removeBase44Elements() {
                 try {
-                  const allElements = document.querySelectorAll('*');
-                  allElements.forEach(el => {
+                  document.querySelectorAll('*').forEach(el => {
                     const text = (el.textContent || '').toLowerCase();
-                    const innerHTML = (el.innerHTML || '').toLowerCase();
                     
                     for (const term of SEARCH_TERMS) {
-                      if (text.includes(term.toLowerCase()) || innerHTML.includes(term.toLowerCase())) {
-                        el.remove();
-                        return;
+                      if (text.includes(term.toLowerCase())) {
+                        const parent = el.parentElement;
+                        if (parent) {
+                          el.remove();
+                          return;
+                        }
                       }
                     }
                     
@@ -124,23 +106,6 @@ exports.handler = async (event, context) => {
                           el.remove();
                           return;
                         }
-                      }
-                    }
-                  });
-                  
-                  document.querySelectorAll('*').forEach(el => {
-                    const style = window.getComputedStyle(el);
-                    if (style.position === 'fixed') {
-                      const rect = el.getBoundingClientRect();
-                      const winWidth = window.innerWidth;
-                      const winHeight = window.innerHeight;
-                      
-                      if (rect.right > winWidth * 0.7 && rect.bottom > winHeight * 0.7) {
-                        el.remove();
-                      }
-                      
-                      if (rect.width < 300 && rect.height < 100) {
-                        el.remove();
                       }
                     }
                   });
@@ -156,23 +121,19 @@ exports.handler = async (event, context) => {
                 }
               }
               
-              nukeBase44();
-              
               if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', nukeBase44);
+                document.addEventListener('DOMContentLoaded', removeBase44Elements);
+              } else {
+                removeBase44Elements();
               }
               
-              window.addEventListener('load', nukeBase44);
-              setInterval(nukeBase44, KILL_INTERVAL);
+              window.addEventListener('load', removeBase44Elements);
+              setInterval(removeBase44Elements, KILL_INTERVAL);
               
-              const observer = new MutationObserver(() => {
-                nukeBase44();
-              });
-              
+              const observer = new MutationObserver(removeBase44Elements);
               observer.observe(document.documentElement, {
                 childList: true,
-                subtree: true,
-                attributes: true
+                subtree: true
               });
               
             })();
@@ -186,21 +147,13 @@ exports.handler = async (event, context) => {
         } else {
           content = hideBase44CSS + content;
         }
-        
-        content = content.replace(/<script[^>]*src=["'][^"']*base44[^"']*["'][^>]*><\/script>/gi, '');
-      }
-      
-      // Remove Base44 references from JavaScript
-      if (contentType.includes('javascript')) {
-        content = content.replace(/base44\.app/g, event.headers.host || '');
-        content = content.replace(/["']remix["']/gi, '""');
       }
       
       return {
         statusCode: response.status,
         headers: {
           'Content-Type': contentType,
-          'Cache-Control': response.headers.get('cache-control') || 'no-cache',
+          'Cache-Control': 'no-cache',
         },
         body: content
       };
@@ -210,7 +163,7 @@ exports.handler = async (event, context) => {
         statusCode: response.status,
         headers: {
           'Content-Type': contentType,
-          'Cache-Control': response.headers.get('cache-control') || 'public, max-age=3600',
+          'Cache-Control': 'public, max-age=3600',
         },
         body: buffer.toString('base64'),
         isBase64Encoded: true
@@ -219,9 +172,62 @@ exports.handler = async (event, context) => {
 
   } catch (error) {
     console.error('Proxy error:', error);
+    
+    // Return a user-friendly error page
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Proxy error: ' + error.message })
+      statusCode: 502,
+      headers: {
+        'Content-Type': 'text/html',
+      },
+      body: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>BigGrade - Loading Error</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              margin: 0;
+              background: #f5f5f5;
+            }
+            .error-container {
+              text-align: center;
+              padding: 40px;
+              background: white;
+              border-radius: 8px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              max-width: 500px;
+            }
+            h1 { color: #e74c3c; }
+            p { color: #666; line-height: 1.6; }
+            .retry-btn {
+              margin-top: 20px;
+              padding: 10px 20px;
+              background: #3498db;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 16px;
+            }
+            .retry-btn:hover { background: #2980b9; }
+          </style>
+        </head>
+        <body>
+          <div class="error-container">
+            <h1>⚠️ Connection Error</h1>
+            <p>Unable to load BigGrade. The proxy service encountered an error.</p>
+            <p><strong>Error:</strong> ${error.message}</p>
+            <button class="retry-btn" onclick="location.reload()">Retry</button>
+          </div>
+        </body>
+        </html>
+      `
     };
   }
 };
