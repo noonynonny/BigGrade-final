@@ -46,11 +46,6 @@
     .branding-cover.visible {
       opacity: 1;
     }
-    
-    /* Preemptive cover - shows immediately on load to prevent flash */
-    .branding-cover.preemptive {
-      opacity: 1;
-    }
   </style>
 </head>
 <body>
@@ -63,113 +58,19 @@
   ></iframe>
   
   <!-- Dynamic overlay that appears only when Base44 branding is detected -->
-  <div class="branding-cover preemptive" id="branding-cover"></div>
+  <div class="branding-cover" id="branding-cover"></div>
   
   <script>
     const iframe = document.getElementById('app-iframe');
     const cover = document.getElementById('branding-cover');
     
+    let hideTimer = null;
     let brandingCheckInterval = null;
-    let lastBrandingState = false;
     
-    // Start with preemptive cover to prevent flash
-    cover.classList.add('preemptive');
-    
-    // Remove preemptive cover after initial load
-    setTimeout(() => {
-      cover.classList.remove('preemptive');
-      startBrandingDetection();
-    }, 2000);
-    
-    function startBrandingDetection() {
-      // Check for Base44 branding every 500ms
-      brandingCheckInterval = setInterval(checkForBranding, 500);
-    }
-    
-    function checkForBranding() {
-      try {
-        // Try to access iframe content (will fail due to cross-origin, but we try anyway)
-        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-        
-        // Look for Base44 branding elements
-        const brandingElements = iframeDoc.querySelectorAll(
-          '[class*="base44"], [id*="base44"], ' +
-          '[class*="Base44"], [id*="Base44"], ' +
-          'a[href*="base44"], button[class*="edit"], ' +
-          'button[class*="remix"], [class*="branding"], ' +
-          '[class*="watermark"], .powered-by, .made-with'
-        );
-        
-        const brandingVisible = brandingElements.length > 0;
-        
-        if (brandingVisible !== lastBrandingState) {
-          lastBrandingState = brandingVisible;
-          
-          if (brandingVisible) {
-            console.log('Base44 branding detected - showing cover');
-            cover.classList.add('visible');
-            
-            // Try to hide the branding element directly
-            brandingElements.forEach(el => {
-              el.style.display = 'none';
-              el.style.visibility = 'hidden';
-              el.style.opacity = '0';
-            });
-          } else {
-            console.log('No Base44 branding - hiding cover');
-            cover.classList.remove('visible');
-          }
-        }
-      } catch (error) {
-        // Cross-origin restriction - expected
-        // Use heuristic detection instead
-        detectBrandingByHeuristics();
-      }
-    }
-    
-    function detectBrandingByHeuristics() {
-      // Since we can't access iframe content, use heuristics:
-      // - Show cover after 3 seconds (when Base44 typically loads branding)
-      // - Hide cover on certain pages (like login)
-      
-      try {
-        const iframeUrl = iframe.contentWindow.location.href;
-        
-        // If on login page, hide cover
-        if (iframeUrl.includes('login') || iframeUrl.includes('signin') || iframeUrl.includes('auth')) {
-          if (lastBrandingState !== false) {
-            lastBrandingState = false;
-            cover.classList.remove('visible');
-            console.log('Login page detected - hiding cover');
-          }
-        } else {
-          // On app pages, show cover (Base44 branding likely present)
-          if (lastBrandingState !== true) {
-            lastBrandingState = true;
-            cover.classList.add('visible');
-            console.log('App page detected - showing cover');
-          }
-        }
-      } catch (e) {
-        // Can't access URL either - assume branding might be present
-        // Show cover by default after initial load
-        if (!cover.classList.contains('visible') && !cover.classList.contains('preemptive')) {
-          setTimeout(() => {
-            cover.classList.add('visible');
-          }, 3000);
-        }
-      }
-    }
-    
-    // Listen for iframe navigation changes
+    // Try to inject CSS to prevent Base44 branding from appearing
     iframe.addEventListener('load', () => {
-      console.log('Iframe loaded/navigated');
+      console.log('Iframe loaded');
       
-      // Reset and check again
-      cover.classList.remove('preemptive');
-      checkForBranding();
-      
-      // Try to inject CSS to prevent Base44 branding from appearing
       try {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
         
@@ -199,23 +100,73 @@
         
         console.log('✅ Injected CSS to prevent Base44 branding');
         
-        // If CSS injection worked, we might not need the overlay
+        // Check if branding still appears despite CSS injection
         setTimeout(() => {
-          const brandingElements = iframeDoc.querySelectorAll('[class*="base44"], [id*="base44"]');
-          if (brandingElements.length === 0) {
-            cover.classList.remove('visible');
-            console.log('No branding elements found - hiding cover');
-          }
+          checkForBranding(iframeDoc);
         }, 1000);
         
       } catch (error) {
         // Cross-origin - can't inject CSS
-        console.log('Cannot inject CSS (cross-origin) - using overlay');
+        console.log('Cannot inject CSS (cross-origin) - will use overlay if needed');
+        
+        // Start monitoring for branding
+        startBrandingMonitoring();
       }
     });
     
+    function startBrandingMonitoring() {
+      // Check for branding after a delay (Base44 typically loads branding after page load)
+      setTimeout(() => {
+        // Show overlay preemptively (Base44 branding usually appears)
+        showCoverWithTimer();
+      }, 3000);
+    }
+    
+    function checkForBranding(iframeDoc) {
+      try {
+        // Look for Base44 branding elements
+        const brandingElements = iframeDoc.querySelectorAll(
+          '[class*="base44"], [id*="base44"], ' +
+          '[class*="Base44"], [id*="Base44"], ' +
+          'a[href*="base44"], button[class*="edit"], ' +
+          'button[class*="remix"]'
+        );
+        
+        if (brandingElements.length > 0) {
+          console.log('Base44 branding detected despite CSS injection');
+          showCoverWithTimer();
+        } else {
+          console.log('No Base44 branding detected - CSS injection successful');
+        }
+      } catch (error) {
+        // Can't access iframe - assume branding might be present
+        console.log('Cannot check for branding (cross-origin)');
+        showCoverWithTimer();
+      }
+    }
+    
+    function showCoverWithTimer() {
+      // Clear any existing timer
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+      }
+      
+      // Show the cover
+      cover.classList.add('visible');
+      console.log('Showing branding cover');
+      
+      // Hide after 15 seconds
+      hideTimer = setTimeout(() => {
+        cover.classList.remove('visible');
+        console.log('Hiding branding cover after 15 seconds');
+      }, 15000);
+    }
+    
     // Clean up on page unload
     window.addEventListener('beforeunload', () => {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+      }
       if (brandingCheckInterval) {
         clearInterval(brandingCheckInterval);
       }
