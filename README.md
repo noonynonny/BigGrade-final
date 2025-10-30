@@ -1,121 +1,191 @@
-# BigGrade Netlify Wrapper
+# BigGrade Reverse Proxy
 
-A simple redirect page for BigGrade hosted on Netlify that seamlessly directs users to the BigGrade application on Base44.
+A reverse proxy server that wraps the BigGrade Base44 app, hides branding, and keeps your custom domain in the address bar.
 
-## 🎯 Purpose
+## 🎯 What This Does
 
-This repository provides a branded entry point at `biggrade.netlify.app` that automatically redirects users to the BigGrade application at `biggrade0.base44.app`.
+- ✅ Proxies `biggrade0.base44.app` through your own domain
+- ✅ Hides the "Edit with Base44" button and other Base44 branding
+- ✅ Handles Google OAuth properly
+- ✅ Keeps your domain (not base44.app) in the address bar
+- ✅ Injects custom CSS/JavaScript to remove unwanted elements
 
-## ✅ Solution
+## 🚀 Quick Start (Deploy to Render.com - Free)
 
-After testing various approaches to embed the Base44 app in an iframe, we determined that **Google OAuth cannot work in iframes** due to security restrictions (`X-Frame-Options: deny`). 
+1. **Fork this repository** (if you haven't already)
 
-The final solution is a **simple redirect page** that:
-- Shows a branded loading screen
-- Automatically redirects to the Base44 app in 0.1 seconds
-- Provides a manual "Go to BigGrade" button as fallback
-- Allows Google Sign-In to work perfectly
+2. **Sign up at [Render.com](https://render.com)** (free account)
 
-## 🚀 How It Works
+3. **Create a new Web Service**:
+   - Click "New +" → "Web Service"
+   - Connect your GitHub account
+   - Select this repository: `noonynonny/BigGrade-final`
+   - Render will auto-detect the configuration
+   - Click "Create Web Service"
 
-1. User visits `https://biggrade.netlify.app/`
-2. Sees a branded "Redirecting..." page with BigGrade logo
-3. Automatically redirected to `https://biggrade0.base44.app`
-4. Can sign in with Google without any issues
-5. Full app functionality works normally
+4. **Wait for deployment** (2-3 minutes)
 
-## 📁 Repository Structure
+5. **Access your app** at the provided URL (e.g., `https://biggrade-proxy.onrender.com`)
+
+6. **Add custom domain** (optional):
+   - In Render dashboard: Settings → Custom Domain
+   - Add your domain (e.g., `biggrade.yourdomain.com`)
+   - Update your DNS with the CNAME record Render provides
+
+## 📋 How It Works
 
 ```
-BigGrade-final/
-├── public/
-│   └── index.html              # Main redirect page
-├── FINAL_SOLUTION.md           # Detailed explanation of the solution
-├── OAUTH_FIX_EXPLANATION.md    # Technical details about OAuth issues
-├── OAUTH_WORKAROUND_GUIDE.md   # Alternative approaches considered
-├── IMPLEMENTATION_SUMMARY.md   # Summary of implementation steps
-└── README.md                   # This file
+User visits your domain
+        ↓
+Reverse Proxy Server (your Render/Railway deployment)
+        ↓
+Fetches content from biggrade0.base44.app
+        ↓
+Injects CSS/JS to hide Base44 branding
+        ↓
+Returns modified content
+        ↓
+User sees BigGrade without Base44 branding!
 ```
 
-## 🔧 Technical Details
-
-### Why Not Use an Iframe?
-
-We initially attempted to embed the Base44 app in an iframe, but encountered these issues:
-
-1. **Google OAuth Blocking**: Google sets `X-Frame-Options: deny` on their OAuth pages, preventing them from loading in any iframe
-2. **No Workaround**: No combination of iframe sandbox permissions can override this security policy
-3. **Browser Extensions**: Some extensions (like redirect blockers) interfere with iframe navigation
-4. **Complexity**: Iframe wrappers add unnecessary complexity and potential points of failure
-
-### Why Direct Redirect Works
-
-- ✅ No iframe restrictions
-- ✅ Google OAuth works perfectly
-- ✅ Simple, maintainable code
-- ✅ Universal browser support
-- ✅ Fast loading time
-- ✅ Professional user experience
-
-## 🧪 Testing
-
-The solution has been tested and verified:
-
-1. ✅ Redirect works automatically
-2. ✅ Fallback button works if auto-redirect fails
-3. ✅ Google Sign-In works without errors
-4. ✅ OAuth flow completes successfully
-5. ✅ Users can access the full BigGrade app
-
-## 📝 Deployment
-
-This site is automatically deployed to Netlify when changes are pushed to the `main` branch.
-
-**Live URL**: https://biggrade.netlify.app/
-
-## 🛠️ Local Development
-
-To test locally:
-
-1. Clone this repository
-2. Open `public/index.html` in a browser
-3. You'll be redirected to the BigGrade app
-
-Or use a local server:
+## 🧪 Test Locally
 
 ```bash
-cd public
-python3 -m http.server 8000
-# Visit http://localhost:8000
+git clone https://github.com/noonynonny/BigGrade-final.git
+cd BigGrade-final
+npm install
+npm start
 ```
 
-## 📚 Documentation
+Visit `http://localhost:3000` to see the proxy in action.
 
-For more details, see:
+## 📚 Full Documentation
 
-- **[FINAL_SOLUTION.md](FINAL_SOLUTION.md)** - Complete explanation of why this approach was chosen
-- **[OAUTH_FIX_EXPLANATION.md](OAUTH_FIX_EXPLANATION.md)** - Technical details about OAuth restrictions
-- **[OAUTH_WORKAROUND_GUIDE.md](OAUTH_WORKAROUND_GUIDE.md)** - Alternative approaches that were considered
+See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for:
+- Detailed deployment instructions for multiple platforms
+- Custom domain setup
+- Troubleshooting
+- Cost comparison
+- OAuth configuration
 
-## 🎨 Customization
+## 🔧 Configuration
 
-To customize the redirect page:
+The proxy server is configured in `server.js`. Key features:
 
-1. Edit `public/index.html`
-2. Modify the styles in the `<style>` section
-3. Update the logo, colors, or text as needed
-4. Commit and push to deploy
+- **Target**: `https://biggrade0.base44.app`
+- **Port**: 3000 (configurable via `PORT` environment variable)
+- **Branding Removal**: Automatic CSS/JS injection
+- **OAuth Handling**: Preserves authentication flow
 
-## 🔗 Links
+## 🌐 Deployment Options
 
-- **Netlify Site**: https://biggrade.netlify.app/
-- **BigGrade App**: https://biggrade0.base44.app/
-- **GitHub Repository**: https://github.com/noonynonny/BigGrade-final
+| Platform | Difficulty | Free Tier | Deploy Time |
+|----------|-----------|-----------|-------------|
+| **Render.com** | ⭐ Easy | ✅ Yes | 2-3 min |
+| **Railway.app** | ⭐ Easy | ✅ Yes | 2-3 min |
+| **Fly.io** | ⭐⭐ Medium | ✅ Yes | 5 min |
+| **Heroku** | ⭐⭐ Medium | ❌ No ($5/mo) | 5 min |
+
+**Recommended**: Render.com (easiest setup, generous free tier)
+
+## ⚠️ Important Notes
+
+### Google OAuth
+
+Google OAuth works through the proxy because:
+1. The proxy preserves all OAuth redirects
+2. Your domain is used throughout the flow
+3. No iframe restrictions apply
+
+### Base44 Branding
+
+The proxy hides:
+- "Edit with Base44" button (bottom right)
+- Base44 logos and links
+- Remix/fork buttons
+- Other Base44-specific UI elements
+
+If new branding appears, you can update the CSS selectors in `server.js`.
+
+### Performance
+
+The proxy adds minimal latency (~50-100ms) since it:
+1. Fetches content from Base44
+2. Modifies HTML/CSS/JS
+3. Returns to the user
+
+This is normal for reverse proxies and shouldn't affect user experience.
+
+## 🛠️ Customization
+
+### Hide Additional Elements
+
+Edit `server.js` and add CSS selectors to the `hideBase44CSS` section:
+
+```javascript
+const hideBase44CSS = `
+  <style>
+    /* Your custom selectors here */
+    .unwanted-element {
+      display: none !important;
+    }
+  </style>
+`;
+```
+
+### Change Target App
+
+To proxy a different Base44 app, change the `TARGET` constant in `server.js`:
+
+```javascript
+const TARGET = 'https://your-app.base44.app';
+```
+
+## 📝 Files
+
+- `server.js` - Main proxy server code
+- `package.json` - Node.js dependencies
+- `render.yaml` - Render.com configuration
+- `netlify.toml` - Netlify configuration (for functions)
+- `DEPLOYMENT_GUIDE.md` - Detailed deployment instructions
+- `README.md` - This file
+
+## 🐛 Troubleshooting
+
+### Proxy Not Starting
+
+```bash
+npm install  # Reinstall dependencies
+npm start    # Try again
+```
+
+### Base44 Branding Still Visible
+
+1. Open browser dev tools (F12)
+2. Inspect the element
+3. Note its class/ID
+4. Add it to `server.js` CSS selectors
+5. Redeploy
+
+### OAuth Not Working
+
+The proxy preserves OAuth flows. If it's not working:
+1. Check browser console for errors
+2. Verify your domain is correctly configured
+3. Test with the direct Base44 URL to rule out Base44 issues
+
+## 📞 Support
+
+For issues:
+1. Check [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+2. Review deployment logs on your hosting platform
+3. Test locally with `npm start`
+4. Open an issue on GitHub
 
 ## 📄 License
 
-This is a simple redirect page for the BigGrade application.
+MIT License - Feel free to use and modify
 
 ---
 
-**Note**: This wrapper simply redirects to the actual BigGrade application. All functionality, data, and authentication are handled by the Base44-hosted app.
+**Ready to deploy?** Head to [Render.com](https://render.com) and follow the Quick Start above!
