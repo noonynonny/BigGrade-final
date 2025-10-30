@@ -29,20 +29,8 @@
       display: block;
     }
     
-    /* Overlay to cover Base44 branding */
+    /* Dynamic overlay that only shows when Base44 branding is detected */
     .branding-cover {
-      position: fixed;
-      bottom: 0;
-      right: 0;
-      width: 200px;
-      height: 80px;
-      background: white;
-      z-index: 9999;
-      pointer-events: none;
-    }
-    
-    /* Alternative: cover the entire bottom-right corner */
-    .corner-cover {
       position: fixed;
       bottom: 0;
       right: 0;
@@ -51,19 +39,17 @@
       background: linear-gradient(to top, white 0%, white 70%, transparent 100%);
       z-index: 9999;
       pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
     
-    /* Cover bottom bar if Base44 has one */
-    .bottom-bar-cover {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      background: white;
-      z-index: 9998;
-      pointer-events: none;
-      display: none; /* Enable if needed */
+    .branding-cover.visible {
+      opacity: 1;
+    }
+    
+    /* Preemptive cover - shows immediately on load to prevent flash */
+    .branding-cover.preemptive {
+      opacity: 1;
     }
   </style>
 </head>
@@ -76,22 +62,121 @@
     allowfullscreen
   ></iframe>
   
-  <!-- Overlay to cover Base44 branding -->
-  <div class="corner-cover"></div>
+  <!-- Dynamic overlay that appears only when Base44 branding is detected -->
+  <div class="branding-cover preemptive" id="branding-cover"></div>
   
   <script>
     const iframe = document.getElementById('app-iframe');
+    const cover = document.getElementById('branding-cover');
     
-    // Try to inject CSS into iframe to hide Base44 elements
-    iframe.addEventListener('load', () => {
+    let brandingCheckInterval = null;
+    let lastBrandingState = false;
+    
+    // Start with preemptive cover to prevent flash
+    cover.classList.add('preemptive');
+    
+    // Remove preemptive cover after initial load
+    setTimeout(() => {
+      cover.classList.remove('preemptive');
+      startBrandingDetection();
+    }, 2000);
+    
+    function startBrandingDetection() {
+      // Check for Base44 branding every 500ms
+      brandingCheckInterval = setInterval(checkForBranding, 500);
+    }
+    
+    function checkForBranding() {
       try {
-        // Attempt to access iframe document (will fail due to cross-origin)
+        // Try to access iframe content (will fail due to cross-origin, but we try anyway)
         const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
         
-        // Inject CSS to hide Base44 branding
+        // Look for Base44 branding elements
+        const brandingElements = iframeDoc.querySelectorAll(
+          '[class*="base44"], [id*="base44"], ' +
+          '[class*="Base44"], [id*="Base44"], ' +
+          'a[href*="base44"], button[class*="edit"], ' +
+          'button[class*="remix"], [class*="branding"], ' +
+          '[class*="watermark"], .powered-by, .made-with'
+        );
+        
+        const brandingVisible = brandingElements.length > 0;
+        
+        if (brandingVisible !== lastBrandingState) {
+          lastBrandingState = brandingVisible;
+          
+          if (brandingVisible) {
+            console.log('Base44 branding detected - showing cover');
+            cover.classList.add('visible');
+            
+            // Try to hide the branding element directly
+            brandingElements.forEach(el => {
+              el.style.display = 'none';
+              el.style.visibility = 'hidden';
+              el.style.opacity = '0';
+            });
+          } else {
+            console.log('No Base44 branding - hiding cover');
+            cover.classList.remove('visible');
+          }
+        }
+      } catch (error) {
+        // Cross-origin restriction - expected
+        // Use heuristic detection instead
+        detectBrandingByHeuristics();
+      }
+    }
+    
+    function detectBrandingByHeuristics() {
+      // Since we can't access iframe content, use heuristics:
+      // - Show cover after 3 seconds (when Base44 typically loads branding)
+      // - Hide cover on certain pages (like login)
+      
+      try {
+        const iframeUrl = iframe.contentWindow.location.href;
+        
+        // If on login page, hide cover
+        if (iframeUrl.includes('login') || iframeUrl.includes('signin') || iframeUrl.includes('auth')) {
+          if (lastBrandingState !== false) {
+            lastBrandingState = false;
+            cover.classList.remove('visible');
+            console.log('Login page detected - hiding cover');
+          }
+        } else {
+          // On app pages, show cover (Base44 branding likely present)
+          if (lastBrandingState !== true) {
+            lastBrandingState = true;
+            cover.classList.add('visible');
+            console.log('App page detected - showing cover');
+          }
+        }
+      } catch (e) {
+        // Can't access URL either - assume branding might be present
+        // Show cover by default after initial load
+        if (!cover.classList.contains('visible') && !cover.classList.contains('preemptive')) {
+          setTimeout(() => {
+            cover.classList.add('visible');
+          }, 3000);
+        }
+      }
+    }
+    
+    // Listen for iframe navigation changes
+    iframe.addEventListener('load', () => {
+      console.log('Iframe loaded/navigated');
+      
+      // Reset and check again
+      cover.classList.remove('preemptive');
+      checkForBranding();
+      
+      // Try to inject CSS to prevent Base44 branding from appearing
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        
+        // Inject CSS immediately to prevent branding from showing
         const style = iframeDoc.createElement('style');
         style.textContent = `
-          /* Hide Base44 branding elements */
+          /* Prevent Base44 branding from appearing */
           [class*="base44"],
           [id*="base44"],
           [class*="Base44"],
@@ -107,38 +192,34 @@
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
-          }
-          
-          /* Hide elements in bottom-right corner */
-          body > div:last-child,
-          body > a:last-child {
-            display: none !important;
+            pointer-events: none !important;
           }
         `;
         iframeDoc.head.appendChild(style);
         
-        console.log('✅ Successfully injected CSS to hide Base44 branding');
+        console.log('✅ Injected CSS to prevent Base44 branding');
+        
+        // If CSS injection worked, we might not need the overlay
+        setTimeout(() => {
+          const brandingElements = iframeDoc.querySelectorAll('[class*="base44"], [id*="base44"]');
+          if (brandingElements.length === 0) {
+            cover.classList.remove('visible');
+            console.log('No branding elements found - hiding cover');
+          }
+        }, 1000);
+        
       } catch (error) {
-        // Cross-origin restriction - expected
-        // The CSS overlay will handle hiding the branding instead
-        console.log('Using CSS overlay to hide branding (cross-origin restriction)');
+        // Cross-origin - can't inject CSS
+        console.log('Cannot inject CSS (cross-origin) - using overlay');
       }
     });
     
-    // Monitor iframe and adjust cover position if needed
-    function adjustCoverPosition() {
-      const cover = document.querySelector('.corner-cover');
-      
-      // You can adjust these values based on where the Base44 button appears
-      // Check the browser inspector to see the exact position
-      
-      // Example: If button is in bottom-left instead
-      // cover.style.right = 'auto';
-      // cover.style.left = '0';
-    }
-    
-    // Call on load
-    window.addEventListener('load', adjustCoverPosition);
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+      if (brandingCheckInterval) {
+        clearInterval(brandingCheckInterval);
+      }
+    });
   </script>
 </body>
 </html>
