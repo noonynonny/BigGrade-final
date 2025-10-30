@@ -12,4 +12,4 @@
 [x] Create a cleaner embed solution that avoids conflicts
 [x] Test the solution locally
 [x] Update netlify configuration if needed
-[ ] Commit and push changes
+[x] Commit and push changes

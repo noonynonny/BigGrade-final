@@ -20,32 +20,23 @@
     }
     
     .container {
-      width: 100%;
+      width: 100vw;
       height: 100vh;
+      position: relative;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      position: relative;
-    }
-    
-    .app-wrapper {
-      width: 90%;
-      max-width: 1200px;
-      height: 80vh;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-      position: relative;
     }
     
     #app-frame {
-      width: 100%;
-      height: 100%;
+      width: 100vw;
+      height: 100vh;
       border: none;
       display: block;
       background: white;
+      position: absolute;
+      top: 0;
+      left: 0;
     }
     
     .loading {
@@ -54,7 +45,7 @@
       left: 50%;
       transform: translate(-50%, -50%);
       text-align: center;
-      color: #666;
+      color: white;
       font-size: 18px;
       z-index: 10;
     }
@@ -62,8 +53,8 @@
     .spinner {
       width: 40px;
       height: 40px;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #667eea;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid white;
       border-radius: 50%;
       animation: spin 1s linear infinite;
       margin: 0 auto 20px;
@@ -76,59 +67,82 @@
     
     .error-message {
       display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
       text-align: center;
-      color: #e74c3c;
+      color: white;
       font-size: 16px;
       max-width: 400px;
       padding: 20px;
-      background: white;
+      background: rgba(0, 0, 0, 0.3);
       border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
     }
     
-    .retry-button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      background: #667eea;
+    .retry-button, .direct-button {
+      margin: 10px;
+      padding: 12px 24px;
+      background: rgba(255, 255, 255, 0.2);
       color: white;
-      border: none;
+      border: 2px solid white;
       border-radius: 6px;
       cursor: pointer;
       font-size: 14px;
-      transition: background 0.3s;
+      transition: all 0.3s;
     }
     
-    .retry-button:hover {
-      background: #5a6fd8;
+    .retry-button:hover, .direct-button:hover {
+      background: white;
+      color: #667eea;
+    }
+    
+    .instructions {
+      margin-top: 30px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+      max-width: 500px;
+    }
+    
+    .instructions h3 {
+      color: white;
+      margin-bottom: 10px;
+    }
+    
+    .instructions p {
+      color: rgba(255, 255, 255, 0.9);
+      line-height: 1.6;
+      margin-bottom: 10px;
     }
   </style>
 <script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
 </head>
 <body>
   <div class="container">
-    <div class="app-wrapper">
-      <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <div>Loading BigGrade...</div>
-      </div>
-      
-      <div class="error-message" id="error-message">
-        <h3>Unable to load BigGrade</h3>
-        <p>There was an issue loading the application. Please check your internet connection and try again.</p>
-        <button class="retry-button" onclick="retryLoad()">Retry</button>
-      </div>
-      
-      <iframe 
-        id="app-frame" 
-        src="https://biggrade0.base44.app"
-        allow="camera; microphone; clipboard-read; clipboard-write"
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads"
-        style="display: none;"
-      ></iframe>
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div>Loading BigGrade...</div>
+    </div>
+    
+    <div class="error-message" id="error-message">
+      <h3>Authentication Required</h3>
+      <p>Google authentication doesn't work properly in an iframe. Please choose an option below:</p>
+      <button class="direct-button" onclick="openDirect()">Open BigGrade in New Tab</button>
+      <button class="retry-button" onclick="retryLoad()">Try Embed Again</button>
+    </div>
+    
+    <iframe 
+      id="app-frame" 
+      src="https://biggrade0.base44.app"
+      allow="camera; microphone; clipboard-read; clipboard-write; fullscreen; payment; geolocation; *"
+      style="display: none;"
+    ></iframe>
+    
+    <div class="instructions" id="instructions" style="display: none;">
+      <h3>Welcome to BigGrade</h3>
+      <p>This wrapper provides a seamless experience for the BigGrade application.</p>
+      <p>For the best experience with Google authentication, we recommend opening BigGrade directly.</p>
+      <button class="direct-button" onclick="openDirect()">Launch BigGrade</button>
+      <button class="retry-button" onclick="retryLoad()">Continue in Wrapper</button>
     </div>
   </div>
 
@@ -136,21 +150,35 @@
     let loadTimeout;
     let retryCount = 0;
     const maxRetries = 3;
+    let googleOAuthDetected = false;
     
     function showLoading() {
       document.getElementById('loading').style.display = 'block';
       document.getElementById('error-message').style.display = 'none';
+      document.getElementById('instructions').style.display = 'none';
     }
     
     function showError() {
       document.getElementById('loading').style.display = 'none';
       document.getElementById('error-message').style.display = 'block';
+      document.getElementById('instructions').style.display = 'none';
+    }
+    
+    function showInstructions() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error-message').style.display = 'none';
+      document.getElementById('instructions').style.display = 'block';
     }
     
     function showApp() {
       document.getElementById('loading').style.display = 'none';
       document.getElementById('error-message').style.display = 'none';
+      document.getElementById('instructions').style.display = 'none';
       document.getElementById('app-frame').style.display = 'block';
+    }
+    
+    function openDirect() {
+      window.open('https://biggrade0.base44.app', '_blank');
     }
     
     function retryLoad() {
@@ -161,9 +189,7 @@
         frame.src = frame.src; // Force reload
         setupFrameMonitoring();
       } else {
-        showError();
-        document.querySelector('#error-message p').textContent = 
-          'Maximum retry attempts reached. Please refresh the page or try again later.';
+        showInstructions();
       }
     }
     
@@ -181,7 +207,7 @@
         if (retryCount < maxRetries) {
           retryLoad();
         } else {
-          showError();
+          showInstructions();
         }
       }, 15000); // 15 second timeout
       
@@ -215,16 +241,26 @@
       });
     }
     
-    // Initialize frame monitoring
-    document.addEventListener('DOMContentLoaded', () => {
-      showLoading();
-      setupFrameMonitoring();
-    });
-    
-    // Handle console errors from the frame
+    // Monitor for OAuth-related errors
     window.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'console-error') {
-        console.warn('Frame console error:', event.data.error);
+      try {
+        if (typeof event.data === 'string') {
+          // Check for Google OAuth error messages
+          if (event.data.includes('accounts.google.com') || 
+              event.data.includes('google') || 
+              event.data.includes('oauth')) {
+            console.log('Google OAuth related message detected:', event.data);
+            googleOAuthDetected = true;
+            clearTimeout(loadTimeout);
+            setTimeout(() => {
+              if (googleOAuthDetected) {
+                showInstructions();
+              }
+            }, 2000);
+          }
+        }
+      } catch (e) {
+        // Ignore parsing errors
       }
     });
     
@@ -234,10 +270,22 @@
       if (e.message && (
         e.message.includes('recorder') ||
         e.message.includes('message port') ||
-        e.message.includes('insertBefore')
+        e.message.includes('insertBefore') ||
+        e.message.includes('accounts.google.com') ||
+        e.message.includes('google')
       )) {
         e.preventDefault();
-        console.warn('Suppressed Base44-related error:', e.message);
+        console.warn('Suppressed error:', e.message);
+        
+        // If it's a Google OAuth error, show instructions
+        if (e.message.includes('google') || e.message.includes('accounts.google.com')) {
+          googleOAuthDetected = true;
+          setTimeout(() => {
+            if (googleOAuthDetected) {
+              showInstructions();
+            }
+          }, 1000);
+        }
       }
     }, true);
     
@@ -245,6 +293,19 @@
     if (typeof window.recorder === 'undefined') {
       window.recorder = null;
     }
+    
+    // Initialize frame monitoring
+    document.addEventListener('DOMContentLoaded', () => {
+      showLoading();
+      setupFrameMonitoring();
+      
+      // Show instructions after a delay to give users the option
+      setTimeout(() => {
+        if (!googleOAuthDetected && document.getElementById('loading').style.display !== 'none') {
+          showInstructions();
+        }
+      }, 10000); // 10 seconds
+    });
   </script>
 </body>
 </html>
