@@ -29,25 +29,18 @@
       display: block;
     }
     
-    /* Overlay that matches BigGrade's dark gradient background */
+    /* Smart adaptive overlay - minimal size, matches background */
     .branding-cover {
       position: fixed;
-      bottom: 0;
-      right: 0;
-      width: 300px;
-      height: 120px;
-      /* Match BigGrade's dark purple/blue gradient */
-      background: linear-gradient(
-        to top, 
-        #1a1a2e 0%, 
-        #16213e 30%,
-        #0f1624 60%,
-        transparent 100%
-      );
+      bottom: 20px;
+      right: 20px;
+      width: 180px;
+      height: 50px;
       z-index: 9999;
       pointer-events: none;
       opacity: 0;
-      transition: opacity 0.3s ease;
+      transition: opacity 0.2s ease, background 0.3s ease;
+      border-radius: 8px;
     }
     
     .branding-cover.visible {
@@ -64,116 +57,179 @@
     allowfullscreen
   ></iframe>
   
-  <!-- Overlay that blends with BigGrade's dark gradient -->
+  <!-- Smart adaptive overlay -->
   <div class="branding-cover" id="branding-cover"></div>
   
   <script>
     const iframe = document.getElementById('app-iframe');
     const cover = document.getElementById('branding-cover');
     
-    let hideTimer = null;
+    let monitoringInterval = null;
+    let lastBrandingVisible = false;
     
-    // Try to inject CSS to prevent Base44 branding from appearing
+    // Try to inject CSS to prevent Base44 branding
     iframe.addEventListener('load', () => {
-      console.log('Iframe loaded - attempting to prevent Base44 branding');
+      console.log('🔄 Iframe loaded - attempting branding prevention');
       
       try {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
         
-        // Inject CSS immediately to prevent branding from showing
+        // Inject aggressive CSS
         const style = iframeDoc.createElement('style');
         style.textContent = `
-          /* Aggressively prevent Base44 branding from appearing */
           [class*="base44"],
           [id*="base44"],
           [class*="Base44"],
           [id*="Base44"],
           a[href*="base44.app"],
           a[href*="base44.com"],
-          button[class*="edit"],
-          button[class*="remix"],
-          button[class*="Edit"],
-          button[class*="Remix"],
+          button[class*="edit" i],
+          button[class*="remix" i],
           div[class*="branding"],
           div[class*="watermark"],
-          div[class*="powered"],
-          div[class*="made-with"],
           .powered-by,
-          .made-with,
-          [aria-label*="base44"],
-          [aria-label*="Base44"],
-          [title*="base44"],
-          [title*="Base44"],
-          /* Target common positions */
-          body > div:last-child:not([class*="app"]):not([id*="root"]),
-          body > a:last-child,
-          /* Target fixed/absolute positioned elements in bottom corners */
-          div[style*="position: fixed"][style*="bottom"],
-          div[style*="position: absolute"][style*="bottom"] {
+          .made-with {
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
-            pointer-events: none !important;
-            width: 0 !important;
-            height: 0 !important;
-            overflow: hidden !important;
           }
         `;
         iframeDoc.head.appendChild(style);
         
-        console.log('✅ Successfully injected CSS to prevent Base44 branding');
+        console.log('✅ CSS injected successfully');
         
-        // Monitor for branding elements that might still appear
-        setTimeout(() => {
+        // Start real-time monitoring
+        startSmartMonitoring(iframeDoc);
+        
+      } catch (error) {
+        console.log('❌ Cross-origin restriction - using fallback monitoring');
+        startFallbackMonitoring();
+      }
+    });
+    
+    function startSmartMonitoring(iframeDoc) {
+      // Monitor every 200ms for Base44 elements
+      monitoringInterval = setInterval(() => {
+        try {
           const brandingElements = iframeDoc.querySelectorAll(
             '[class*="base44"], [id*="base44"], a[href*="base44"]'
           );
           
-          if (brandingElements.length > 0) {
-            console.log(`⚠️ Found ${brandingElements.length} Base44 elements despite CSS - showing overlay`);
-            showCoverWithTimer();
+          const isVisible = brandingElements.length > 0 && 
+                           Array.from(brandingElements).some(el => {
+                             const style = window.getComputedStyle(el);
+                             return style.display !== 'none' && 
+                                    style.visibility !== 'hidden' &&
+                                    style.opacity !== '0';
+                           });
+          
+          if (isVisible !== lastBrandingVisible) {
+            lastBrandingVisible = isVisible;
             
-            // Try to remove them directly
-            brandingElements.forEach(el => {
-              el.remove();
-            });
-          } else {
-            console.log('✅ No Base44 branding detected - CSS prevention successful');
+            if (isVisible) {
+              console.log('👁️ Base44 branding detected - showing cover');
+              
+              // Get the position and color of the branding element
+              const brandingEl = Array.from(brandingElements).find(el => {
+                const style = window.getComputedStyle(el);
+                return style.display !== 'none';
+              });
+              
+              if (brandingEl) {
+                updateCoverPosition(brandingEl);
+                sampleBackgroundColor(brandingEl);
+              }
+              
+              cover.classList.add('visible');
+            } else {
+              console.log('✅ Base44 branding gone - hiding cover');
+              cover.classList.remove('visible');
+            }
           }
-        }, 2000);
-        
-      } catch (error) {
-        // Cross-origin - can't inject CSS
-        console.log('❌ Cannot inject CSS (cross-origin) - will use overlay as fallback');
-        
-        // Show overlay after delay (Base44 typically loads branding after 2-3 seconds)
-        setTimeout(() => {
-          showCoverWithTimer();
-        }, 3000);
-      }
-    });
-    
-    function showCoverWithTimer() {
-      // Clear any existing timer
-      if (hideTimer) {
-        clearTimeout(hideTimer);
-      }
-      
-      // Show the cover
-      cover.classList.add('visible');
-      console.log('📍 Showing branding cover (blends with dark gradient)');
-      
-      // Hide after 7 seconds
-      hideTimer = setTimeout(() => {
-        cover.classList.remove('visible');
-        console.log('✅ Hiding branding cover after 7 seconds');
-      }, 7000);
+        } catch (e) {
+          // Element access failed
+        }
+      }, 200);
     }
     
-    // Clean up on page unload
+    function startFallbackMonitoring() {
+      // Fallback: show cover after 3 seconds, hide after 7 seconds
+      setTimeout(() => {
+        console.log('⚠️ Fallback: Showing cover (can\'t detect branding)');
+        
+        // Sample color from approximate position
+        sampleBackgroundColorFromPosition(window.innerWidth - 100, window.innerHeight - 40);
+        
+        cover.classList.add('visible');
+        
+        setTimeout(() => {
+          console.log('⏱️ Fallback: Hiding cover after 7 seconds');
+          cover.classList.remove('visible');
+        }, 7000);
+      }, 3000);
+    }
+    
+    function updateCoverPosition(element) {
+      try {
+        const rect = element.getBoundingClientRect();
+        
+        // Position cover exactly over the branding element
+        cover.style.bottom = `${window.innerHeight - rect.bottom}px`;
+        cover.style.right = `${window.innerWidth - rect.right}px`;
+        cover.style.width = `${rect.width + 10}px`;
+        cover.style.height = `${rect.height + 10}px`;
+        
+        console.log(`📍 Cover positioned at: bottom ${cover.style.bottom}, right ${cover.style.right}`);
+      } catch (e) {
+        // Use default position
+        cover.style.bottom = '20px';
+        cover.style.right = '20px';
+        cover.style.width = '180px';
+        cover.style.height = '50px';
+      }
+    }
+    
+    function sampleBackgroundColor(element) {
+      try {
+        // Get the computed background color of the element's parent
+        let parent = element.parentElement;
+        let bgColor = null;
+        
+        // Walk up the DOM tree to find a visible background
+        while (parent && !bgColor) {
+          const style = window.getComputedStyle(parent);
+          const bg = style.backgroundColor;
+          
+          if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+            bgColor = bg;
+            break;
+          }
+          
+          parent = parent.parentElement;
+        }
+        
+        if (bgColor) {
+          cover.style.background = bgColor;
+          console.log(`🎨 Cover color matched: ${bgColor}`);
+        } else {
+          // Default to dark gradient
+          cover.style.background = 'linear-gradient(to top, #1a1a2e 0%, #16213e 50%, transparent 100%)';
+          console.log('🎨 Using default dark gradient');
+        }
+      } catch (e) {
+        cover.style.background = 'linear-gradient(to top, #1a1a2e 0%, #16213e 50%, transparent 100%)';
+      }
+    }
+    
+    function sampleBackgroundColorFromPosition(x, y) {
+      // Fallback: use default dark gradient
+      cover.style.background = 'linear-gradient(to top, #1a1a2e 0%, #16213e 50%, transparent 100%)';
+    }
+    
+    // Clean up
     window.addEventListener('beforeunload', () => {
-      if (hideTimer) {
-        clearTimeout(hideTimer);
+      if (monitoringInterval) {
+        clearInterval(monitoringInterval);
       }
     });
   </script>
