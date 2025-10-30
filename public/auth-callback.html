@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Authentication Successful</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+    
+    h1 {
+      color: #1a202c;
+      margin-bottom: 16px;
+    }
+    
+    p {
+      color: #718096;
+      margin-bottom: 24px;
+    }
+    
+    .checkmark {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="checkmark">✓</div>
+    <h1>Authentication Successful!</h1>
+    <p>This window will close automatically...</p>
+  </div>
+
+  <script>
+    // Signal to parent window that auth is complete
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.localStorage.setItem('biggrade_auth_check', 'authenticated');
+        window.opener.focus();
+      } catch (e) {
+        console.log('Could not signal parent:', e);
+      }
+    }
+    
+    // Close this window after a short delay
+    setTimeout(() => {
+      window.close();
+      
+      // If window.close() didn't work (some browsers block it)
+      setTimeout(() => {
+        document.body.innerHTML = '<div class="container"><h1>You can close this tab now</h1><p>Return to the BigGrade tab to continue.</p></div>';
+      }, 1000);
+    }, 2000);
+  </script>
+</body>
+</html>

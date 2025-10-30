@@ -81,7 +81,6 @@
       font-size: 16px;
       font-weight: 600;
       color: #1a202c;
-      text-decoration: none;
       cursor: pointer;
       transition: all 0.3s;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -187,7 +186,7 @@
     <iframe 
       id="biggrade-app"
       src=""
-      sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+      sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-storage-access-by-user-activation"
       allow="camera; microphone; clipboard-read; clipboard-write; fullscreen; payment; geolocation"
     ></iframe>
   </div>
@@ -203,14 +202,16 @@
     let authWindow = null;
     let checkInterval = null;
     
-    // Check if we're the auth popup window
+    // Check if user manually returned after auth
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('auth_popup') === 'true') {
-      // This is the auth popup, check if authenticated and close
-      checkAuthAndClose();
+    if (urlParams.get('check_auth') === 'true') {
+      window.history.replaceState({}, document.title, '/');
+      setTimeout(() => {
+        checkAuthAndLoad();
+      }, 500);
     } else {
-      // This is the main window, check if already authenticated
-      checkExistingAuth();
+      // Check if already authenticated on page load
+      checkAuthAndLoad();
     }
     
     function signIn() {
@@ -218,10 +219,14 @@
       signInBtn.disabled = true;
       buttonText.textContent = 'Opening sign-in...';
       statusMessage.classList.add('active');
+      statusMessage.textContent = 'Please sign in using the new tab that opened.';
       
-      // Open Base44 in a new tab
+      // Clear any previous auth state
+      localStorage.removeItem('biggrade_auth_check');
+      
+      // Open Base44 in a new window
       const authUrl = 'https://biggrade0.base44.app';
-      authWindow = window.open(authUrl, '_blank', 'width=600,height=700');
+      authWindow = window.open(authUrl, 'BigGradeAuth', 'width=600,height=700,menubar=no,toolbar=no,location=no');
       
       if (!authWindow) {
         alert('Please allow popups for this site to sign in');
@@ -231,28 +236,39 @@
         return;
       }
       
-      // Start monitoring for authentication
+      // Start monitoring
       startAuthMonitoring();
     }
     
     function startAuthMonitoring() {
       let attempts = 0;
-      const maxAttempts = 120; // 2 minutes
+      const maxAttempts = 180; // 3 minutes
       
       checkInterval = setInterval(() => {
         attempts++;
         
-        // Check if auth window is closed
+        // Check if popup was closed manually
         if (authWindow && authWindow.closed) {
           clearInterval(checkInterval);
-          checkAuthStatus();
+          statusMessage.textContent = 'Checking authentication...';
+          setTimeout(() => {
+            checkAuthAndLoad();
+            signInBtn.disabled = false;
+            buttonText.textContent = 'Continue with Google';
+            statusMessage.classList.remove('active');
+          }, 1000);
           return;
         }
         
-        // Try to check auth status
-        checkAuthStatus();
+        // Check localStorage for auth signal
+        const authCheck = localStorage.getItem('biggrade_auth_check');
+        if (authCheck === 'authenticated') {
+          clearInterval(checkInterval);
+          onAuthenticated();
+          return;
+        }
         
-        // Timeout after max attempts
+        // Timeout
         if (attempts >= maxAttempts) {
           clearInterval(checkInterval);
           signInBtn.disabled = false;
@@ -265,105 +281,96 @@
       }, 1000);
     }
     
-    function checkAuthStatus() {
-      // Create a hidden iframe to check auth
+    function checkAuthAndLoad() {
+      // Try to load Base44 in a hidden iframe to check cookies
       const testFrame = document.createElement('iframe');
-      testFrame.style.display = 'none';
+      testFrame.style.position = 'absolute';
+      testFrame.style.width = '1px';
+      testFrame.style.height = '1px';
+      testFrame.style.opacity = '0';
+      testFrame.style.pointerEvents = 'none';
       testFrame.src = 'https://biggrade0.base44.app';
       
+      let loaded = false;
+      
       testFrame.onload = () => {
+        if (loaded) return;
+        loaded = true;
+        
+        // Wait a bit for any redirects
         setTimeout(() => {
           try {
             const frameUrl = testFrame.contentWindow.location.href;
-            // If we can access and it's not login page, user is authenticated
-            if (!frameUrl.includes('login')) {
-              onAuthenticated();
+            // If not on login page, user is authenticated
+            if (!frameUrl.includes('/login')) {
+              showApp();
             }
           } catch (e) {
-            // Cross-origin, can't determine
+            // Can't access due to cross-origin
+            // Assume authenticated if we got here (cookies exist)
+            showApp();
           }
-          document.body.removeChild(testFrame);
-        }, 500);
+          
+          // Clean up
+          if (testFrame.parentNode) {
+            document.body.removeChild(testFrame);
+          }
+        }, 2000);
       };
       
       document.body.appendChild(testFrame);
+      
+      // Fallback: remove test frame after 5 seconds
+      setTimeout(() => {
+        if (testFrame.parentNode) {
+          document.body.removeChild(testFrame);
+        }
+      }, 5000);
     }
     
     function onAuthenticated() {
-      clearInterval(checkInterval);
-      
-      // Close auth window if still open
+      // Close auth window
       if (authWindow && !authWindow.closed) {
         authWindow.close();
       }
       
-      // Show the app
-      showApp();
+      // Show success message briefly
+      statusMessage.textContent = 'Authentication successful! Loading app...';
+      
+      setTimeout(() => {
+        showApp();
+      }, 500);
     }
     
     function showApp() {
       landing.style.display = 'none';
       appContainer.classList.add('active');
       iframe.src = 'https://biggrade0.base44.app';
-    }
-    
-    function checkExistingAuth() {
-      // Check if user is already authenticated
-      const testFrame = document.createElement('iframe');
-      testFrame.style.display = 'none';
-      testFrame.src = 'https://biggrade0.base44.app';
       
-      testFrame.onload = () => {
-        setTimeout(() => {
-          try {
-            const frameUrl = testFrame.contentWindow.location.href;
-            if (!frameUrl.includes('login')) {
-              showApp();
-            }
-          } catch (e) {
-            // Not authenticated or can't access
-          }
-          document.body.removeChild(testFrame);
-        }, 1000);
-      };
-      
-      document.body.appendChild(testFrame);
+      // Clear auth check
+      localStorage.removeItem('biggrade_auth_check');
     }
     
-    function checkAuthAndClose() {
-      // This function runs in the popup window
-      // Check if authenticated and notify parent
-      setTimeout(() => {
-        try {
-          const currentUrl = window.location.href;
-          if (!currentUrl.includes('login')) {
-            // Authenticated! Notify opener and close
-            if (window.opener && !window.opener.closed) {
-              window.opener.postMessage({ type: 'authenticated' }, window.location.origin);
-            }
-            window.close();
-          }
-        } catch (e) {
-          console.log('Auth check error:', e);
-        }
-      }, 2000);
-    }
-    
-    // Listen for messages from popup
-    window.addEventListener('message', (event) => {
-      if (event.origin === window.location.origin) {
-        if (event.data.type === 'authenticated') {
-          onAuthenticated();
-        }
+    // Listen for storage changes (from popup window)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'biggrade_auth_check' && e.newValue === 'authenticated') {
+        onAuthenticated();
       }
     });
     
-    // Handle popup being blocked
+    // Listen for focus (when popup closes)
     window.addEventListener('focus', () => {
       if (authWindow && authWindow.closed && !appContainer.classList.contains('active')) {
-        checkAuthStatus();
+        setTimeout(() => {
+          checkAuthAndLoad();
+        }, 500);
       }
     });
+    
+    // Provide manual fallback
+    window.checkAuth = function() {
+      checkAuthAndLoad();
+    };
   </script>
 </body>
 </html>
