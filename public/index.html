@@ -85,12 +85,18 @@
       cursor: pointer;
       transition: all 0.3s;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border: none;
     }
     
     .sign-in-button:hover {
       transform: translateY(-2px);
       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-      border-color: #cbd5e0;
+    }
+    
+    .sign-in-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
     }
     
     .google-icon {
@@ -104,6 +110,20 @@
       border-top: 1px solid #e2e8f0;
       color: #a0aec0;
       font-size: 14px;
+    }
+    
+    .status-message {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #edf2f7;
+      color: #4a5568;
+      font-size: 14px;
+      display: none;
+    }
+    
+    .status-message.active {
+      display: block;
     }
     
     /* App iframe styles */
@@ -142,18 +162,22 @@
       <h1>Welcome to BigGrade</h1>
       <p>A powerful platform for teachers and students to collaborate, learn, and grow together.</p>
       
-      <button class="sign-in-button" onclick="signIn()">
+      <button class="sign-in-button" id="sign-in-btn" onclick="signIn()">
         <svg class="google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
           <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
           <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
         </svg>
-        Continue with Google
+        <span id="button-text">Continue with Google</span>
       </button>
       
+      <div class="status-message" id="status-message">
+        Waiting for authentication...
+      </div>
+      
       <div class="footer">
-        By continuing, you'll be redirected to sign in
+        A new tab will open for secure sign-in
       </div>
     </div>
   </div>
@@ -172,63 +196,172 @@
     const landing = document.getElementById('landing');
     const appContainer = document.getElementById('app-container');
     const iframe = document.getElementById('biggrade-app');
+    const signInBtn = document.getElementById('sign-in-btn');
+    const buttonText = document.getElementById('button-text');
+    const statusMessage = document.getElementById('status-message');
     
-    // Check if user is returning from authentication
+    let authWindow = null;
+    let checkInterval = null;
+    
+    // Check if we're the auth popup window
     const urlParams = new URLSearchParams(window.location.search);
-    const authenticated = urlParams.get('authenticated');
-    const fromAuth = urlParams.get('from_auth');
-    
-    if (authenticated === 'true' || fromAuth === 'true') {
-      // User returned after authentication, show the app
-      showApp();
+    if (urlParams.get('auth_popup') === 'true') {
+      // This is the auth popup, check if authenticated and close
+      checkAuthAndClose();
     } else {
-      // Check if user might already be authenticated by trying to load the app
-      checkAuthentication();
+      // This is the main window, check if already authenticated
+      checkExistingAuth();
     }
     
     function signIn() {
-      // Redirect to Base44 with a return URL
-      const returnUrl = encodeURIComponent(window.location.origin + '?authenticated=true');
-      window.location.href = `https://biggrade0.base44.app?from_url=${returnUrl}`;
+      // Disable button
+      signInBtn.disabled = true;
+      buttonText.textContent = 'Opening sign-in...';
+      statusMessage.classList.add('active');
+      
+      // Open Base44 in a new tab
+      const authUrl = 'https://biggrade0.base44.app';
+      authWindow = window.open(authUrl, '_blank', 'width=600,height=700');
+      
+      if (!authWindow) {
+        alert('Please allow popups for this site to sign in');
+        signInBtn.disabled = false;
+        buttonText.textContent = 'Continue with Google';
+        statusMessage.classList.remove('active');
+        return;
+      }
+      
+      // Start monitoring for authentication
+      startAuthMonitoring();
+    }
+    
+    function startAuthMonitoring() {
+      let attempts = 0;
+      const maxAttempts = 120; // 2 minutes
+      
+      checkInterval = setInterval(() => {
+        attempts++;
+        
+        // Check if auth window is closed
+        if (authWindow && authWindow.closed) {
+          clearInterval(checkInterval);
+          checkAuthStatus();
+          return;
+        }
+        
+        // Try to check auth status
+        checkAuthStatus();
+        
+        // Timeout after max attempts
+        if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          signInBtn.disabled = false;
+          buttonText.textContent = 'Continue with Google';
+          statusMessage.textContent = 'Authentication timed out. Please try again.';
+          if (authWindow && !authWindow.closed) {
+            authWindow.close();
+          }
+        }
+      }, 1000);
+    }
+    
+    function checkAuthStatus() {
+      // Create a hidden iframe to check auth
+      const testFrame = document.createElement('iframe');
+      testFrame.style.display = 'none';
+      testFrame.src = 'https://biggrade0.base44.app';
+      
+      testFrame.onload = () => {
+        setTimeout(() => {
+          try {
+            const frameUrl = testFrame.contentWindow.location.href;
+            // If we can access and it's not login page, user is authenticated
+            if (!frameUrl.includes('login')) {
+              onAuthenticated();
+            }
+          } catch (e) {
+            // Cross-origin, can't determine
+          }
+          document.body.removeChild(testFrame);
+        }, 500);
+      };
+      
+      document.body.appendChild(testFrame);
+    }
+    
+    function onAuthenticated() {
+      clearInterval(checkInterval);
+      
+      // Close auth window if still open
+      if (authWindow && !authWindow.closed) {
+        authWindow.close();
+      }
+      
+      // Show the app
+      showApp();
     }
     
     function showApp() {
       landing.style.display = 'none';
       appContainer.classList.add('active');
       iframe.src = 'https://biggrade0.base44.app';
-      
-      // Clean up URL
-      window.history.replaceState({}, document.title, '/');
     }
     
-    function checkAuthentication() {
-      // Try to load the app in the background to see if user is already authenticated
+    function checkExistingAuth() {
+      // Check if user is already authenticated
       const testFrame = document.createElement('iframe');
       testFrame.style.display = 'none';
       testFrame.src = 'https://biggrade0.base44.app';
-      document.body.appendChild(testFrame);
       
-      // Wait a bit and check if we can access it
+      testFrame.onload = () => {
+        setTimeout(() => {
+          try {
+            const frameUrl = testFrame.contentWindow.location.href;
+            if (!frameUrl.includes('login')) {
+              showApp();
+            }
+          } catch (e) {
+            // Not authenticated or can't access
+          }
+          document.body.removeChild(testFrame);
+        }, 1000);
+      };
+      
+      document.body.appendChild(testFrame);
+    }
+    
+    function checkAuthAndClose() {
+      // This function runs in the popup window
+      // Check if authenticated and notify parent
       setTimeout(() => {
         try {
-          const frameUrl = testFrame.contentWindow.location.href;
-          // If we can access the URL and it's not a login page, user is authenticated
-          if (!frameUrl.includes('login')) {
-            showApp();
+          const currentUrl = window.location.href;
+          if (!currentUrl.includes('login')) {
+            // Authenticated! Notify opener and close
+            if (window.opener && !window.opener.closed) {
+              window.opener.postMessage({ type: 'authenticated' }, window.location.origin);
+            }
+            window.close();
           }
         } catch (e) {
-          // Can't access due to cross-origin, which is expected
+          console.log('Auth check error:', e);
         }
-        document.body.removeChild(testFrame);
       }, 2000);
     }
     
-    // Listen for messages from iframe (in case Base44 sends auth status)
+    // Listen for messages from popup
     window.addEventListener('message', (event) => {
-      if (event.origin === 'https://biggrade0.base44.app') {
+      if (event.origin === window.location.origin) {
         if (event.data.type === 'authenticated') {
-          showApp();
+          onAuthenticated();
         }
+      }
+    });
+    
+    // Handle popup being blocked
+    window.addEventListener('focus', () => {
+      if (authWindow && authWindow.closed && !appContainer.classList.contains('active')) {
+        checkAuthStatus();
       }
     });
   </script>
