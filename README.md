@@ -1,191 +1,106 @@
-# BigGrade Reverse Proxy
+# BigGrade - Simple Iframe Wrapper
 
-A reverse proxy server that wraps the BigGrade Base44 app, hides branding, and keeps your custom domain in the address bar.
+A simple iframe wrapper for the BigGrade Base44 app that allows Google OAuth to work properly.
 
 ## 🎯 What This Does
 
-- ✅ Proxies `biggrade0.base44.app` through your own domain
-- ✅ Hides the "Edit with Base44" button and other Base44 branding
-- ✅ Handles Google OAuth properly
-- ✅ Keeps your domain (not base44.app) in the address bar
-- ✅ Injects custom CSS/JavaScript to remove unwanted elements
+- Embeds `biggrade0.base44.app` in an iframe on your custom domain
+- Allows Google OAuth to work by using `allow-top-navigation`
+- Shows your domain (e.g., `biggrade.netlify.app`) in the address bar
+- When users click "Continue with Google", the full page navigates to complete OAuth
 
-## 🚀 Quick Start (Deploy to Render.com - Free)
+## 🚀 How It Works
 
-1. **Fork this repository** (if you haven't already)
+1. User visits your site (e.g., `biggrade.netlify.app`)
+2. They see BigGrade embedded in an iframe
+3. When they click "Continue with Google":
+   - The entire page navigates to Google OAuth (breaks out of iframe)
+   - User completes authentication
+   - Google redirects back to Base44
+   - Base44 loads with the user authenticated
 
-2. **Sign up at [Render.com](https://render.com)** (free account)
+## 📋 Deployment
 
-3. **Create a new Web Service**:
-   - Click "New +" → "Web Service"
-   - Connect your GitHub account
-   - Select this repository: `noonynonny/BigGrade-final`
-   - Render will auto-detect the configuration
-   - Click "Create Web Service"
+This is already set up for Netlify:
 
-4. **Wait for deployment** (2-3 minutes)
+1. Push changes to GitHub
+2. Netlify automatically deploys
+3. Visit your site at `https://biggrade.netlify.app`
 
-5. **Access your app** at the provided URL (e.g., `https://biggrade-proxy.onrender.com`)
+## ⚙️ Configuration
 
-6. **Add custom domain** (optional):
-   - In Render dashboard: Settings → Custom Domain
-   - Add your domain (e.g., `biggrade.yourdomain.com`)
-   - Update your DNS with the CNAME record Render provides
+The iframe uses these sandbox permissions:
+- `allow-same-origin` - Allows cookies and storage
+- `allow-scripts` - Enables JavaScript
+- `allow-forms` - Allows form submission
+- `allow-popups` - Allows popup windows
+- `allow-top-navigation` - **Key for OAuth** - Allows navigating the parent window
+- `allow-modals` - Allows modal dialogs
 
-## 📋 How It Works
+## 🔧 Customization
 
+To change the embedded app, edit `public/index.html` and change the iframe `src`:
+
+```html
+<iframe src="https://your-app.base44.app" ...>
 ```
-User visits your domain
-        ↓
-Reverse Proxy Server (your Render/Railway deployment)
-        ↓
-Fetches content from biggrade0.base44.app
-        ↓
-Injects CSS/JS to hide Base44 branding
-        ↓
-Returns modified content
-        ↓
-User sees BigGrade without Base44 branding!
-```
-
-## 🧪 Test Locally
-
-```bash
-git clone https://github.com/noonynonny/BigGrade-final.git
-cd BigGrade-final
-npm install
-npm start
-```
-
-Visit `http://localhost:3000` to see the proxy in action.
-
-## 📚 Full Documentation
-
-See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for:
-- Detailed deployment instructions for multiple platforms
-- Custom domain setup
-- Troubleshooting
-- Cost comparison
-- OAuth configuration
-
-## 🔧 Configuration
-
-The proxy server is configured in `server.js`. Key features:
-
-- **Target**: `https://biggrade0.base44.app`
-- **Port**: 3000 (configurable via `PORT` environment variable)
-- **Branding Removal**: Automatic CSS/JS injection
-- **OAuth Handling**: Preserves authentication flow
-
-## 🌐 Deployment Options
-
-| Platform | Difficulty | Free Tier | Deploy Time |
-|----------|-----------|-----------|-------------|
-| **Render.com** | ⭐ Easy | ✅ Yes | 2-3 min |
-| **Railway.app** | ⭐ Easy | ✅ Yes | 2-3 min |
-| **Fly.io** | ⭐⭐ Medium | ✅ Yes | 5 min |
-| **Heroku** | ⭐⭐ Medium | ❌ No ($5/mo) | 5 min |
-
-**Recommended**: Render.com (easiest setup, generous free tier)
 
 ## ⚠️ Important Notes
 
-### Google OAuth
+### Google OAuth Behavior
 
-Google OAuth works through the proxy because:
-1. The proxy preserves all OAuth redirects
-2. Your domain is used throughout the flow
-3. No iframe restrictions apply
+When a user clicks "Continue with Google":
+1. The iframe tries to navigate to Google OAuth
+2. Because of `allow-top-navigation`, the **entire page** navigates (not just the iframe)
+3. User sees Google's login page
+4. After login, Google redirects to Base44
+5. User is authenticated
+
+This means:
+- ✅ OAuth works correctly
+- ⚠️ Your domain temporarily disappears during OAuth (shows Base44 domain)
+- ✅ After OAuth, user can use the app normally
 
 ### Base44 Branding
 
-The proxy hides:
-- "Edit with Base44" button (bottom right)
-- Base44 logos and links
-- Remix/fork buttons
-- Other Base44-specific UI elements
+The "Edit with Base44" button will still be visible because:
+- We can't modify content inside the iframe (cross-origin restriction)
+- This is Base44's branding requirement for free hosting
 
-If new branding appears, you can update the CSS selectors in `server.js`.
+To hide it, users would need a browser extension like uBlock Origin.
 
-### Performance
+## 📁 Files
 
-The proxy adds minimal latency (~50-100ms) since it:
-1. Fetches content from Base44
-2. Modifies HTML/CSS/JS
-3. Returns to the user
-
-This is normal for reverse proxies and shouldn't affect user experience.
-
-## 🛠️ Customization
-
-### Hide Additional Elements
-
-Edit `server.js` and add CSS selectors to the `hideBase44CSS` section:
-
-```javascript
-const hideBase44CSS = `
-  <style>
-    /* Your custom selectors here */
-    .unwanted-element {
-      display: none !important;
-    }
-  </style>
-`;
-```
-
-### Change Target App
-
-To proxy a different Base44 app, change the `TARGET` constant in `server.js`:
-
-```javascript
-const TARGET = 'https://your-app.base44.app';
-```
-
-## 📝 Files
-
-- `server.js` - Main proxy server code
-- `package.json` - Node.js dependencies
-- `render.yaml` - Render.com configuration
-- `netlify.toml` - Netlify configuration (for functions)
-- `DEPLOYMENT_GUIDE.md` - Detailed deployment instructions
+- `public/index.html` - Simple iframe wrapper
+- `netlify.toml` - Netlify configuration
 - `README.md` - This file
 
 ## 🐛 Troubleshooting
 
-### Proxy Not Starting
+### OAuth Shows "Refused to Connect"
 
-```bash
-npm install  # Reinstall dependencies
-npm start    # Try again
-```
+If you see this error, it means `allow-top-navigation` isn't working. Make sure:
+1. The iframe has the `sandbox` attribute with `allow-top-navigation`
+2. You're not blocking popups or navigation in your browser
+3. You're using a modern browser (Chrome, Firefox, Safari, Edge)
 
-### Base44 Branding Still Visible
+### Iframe Not Loading
 
-1. Open browser dev tools (F12)
-2. Inspect the element
-3. Note its class/ID
-4. Add it to `server.js` CSS selectors
-5. Redeploy
+Check:
+1. The Base44 URL is correct: `https://biggrade0.base44.app`
+2. Your browser allows iframes
+3. You don't have extensions blocking iframes
 
-### OAuth Not Working
+### Base44 Branding Visible
 
-The proxy preserves OAuth flows. If it's not working:
-1. Check browser console for errors
-2. Verify your domain is correctly configured
-3. Test with the direct Base44 URL to rule out Base44 issues
+This is expected. The iframe loads Base44's content as-is, including their branding. To hide it:
+- Use a browser extension (uBlock Origin) with custom filters
+- Or accept the branding as part of using Base44's free hosting
 
-## 📞 Support
-
-For issues:
-1. Check [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
-2. Review deployment logs on your hosting platform
-3. Test locally with `npm start`
-4. Open an issue on GitHub
-
-## 📄 License
+## 📝 License
 
 MIT License - Feel free to use and modify
 
 ---
 
-**Ready to deploy?** Head to [Render.com](https://render.com) and follow the Quick Start above!
+**Live Site:** https://biggrade.netlify.app
