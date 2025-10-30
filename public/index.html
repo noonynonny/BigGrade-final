@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BigGrade</title>
+  <meta http-equiv="refresh" content="0;url=https://biggrade0.base44.app">
+  <title>BigGrade - Redirecting...</title>
   <style>
     * {
       margin: 0;
@@ -14,40 +15,47 @@
     html, body {
       width: 100%;
       height: 100%;
-      overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    
-    .container {
-      width: 100vw;
-      height: 100vh;
-      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
     }
     
-    #app-frame {
-      width: 100vw;
-      height: 100vh;
-      border: none;
-      display: block;
-      background: white;
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
-    
-    .loading {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+    .container {
       text-align: center;
       color: white;
-      font-size: 18px;
-      z-index: 10;
+      max-width: 500px;
+      padding: 40px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: white;
+      border-radius: 16px;
+      margin: 0 auto 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      font-weight: bold;
+      color: #667eea;
+    }
+    
+    h1 {
+      font-size: 32px;
+      margin-bottom: 15px;
+    }
+    
+    p {
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 30px;
+      opacity: 0.9;
     }
     
     .spinner {
@@ -65,180 +73,42 @@
       100% { transform: rotate(360deg); }
     }
     
-    .message-box {
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      color: white;
-      font-size: 16px;
-      max-width: 500px;
-      padding: 30px;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 12px;
-      backdrop-filter: blur(10px);
-      z-index: 100;
-    }
-    
-    .message-box h3 {
-      margin-bottom: 15px;
-      font-size: 22px;
-    }
-    
-    .message-box p {
-      margin-bottom: 20px;
-      line-height: 1.6;
-    }
-    
     .button {
-      margin: 10px;
-      padding: 12px 24px;
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
-      border: 2px solid white;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.3s;
-      text-decoration: none;
       display: inline-block;
+      padding: 14px 32px;
+      background: white;
+      color: #667eea;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 16px;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
     
     .button:hover {
-      background: white;
-      color: #667eea;
-    }
-    
-    .button-primary {
-      background: white;
-      color: #667eea;
-    }
-    
-    .button-primary:hover {
-      background: rgba(255, 255, 255, 0.9);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
     }
   </style>
-<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
 </head>
 <body>
   <div class="container">
-    <div class="loading" id="loading">
-      <div class="spinner"></div>
-      <div>Loading BigGrade...</div>
-    </div>
-    
-    <div class="message-box" id="auth-message">
-      <h3>🔐 Authentication Required</h3>
-      <p>To sign in with Google, we need to temporarily redirect you to complete the authentication process.</p>
-      <p>You'll be redirected back here automatically after signing in.</p>
-      <button class="button button-primary" onclick="proceedToAuth()">Continue to Sign In</button>
-      <button class="button" onclick="cancelAuth()">Cancel</button>
-    </div>
-    
-    <iframe 
-      id="app-frame" 
-      src="https://biggrade0.base44.app"
-      sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation allow-top-navigation-by-user-activation"
-      allow="camera; microphone; clipboard-read; clipboard-write; fullscreen; payment; geolocation"
-      style="display: none;"
-    ></iframe>
+    <div class="logo">B</div>
+    <h1>Welcome to BigGrade</h1>
+    <p>Redirecting you to BigGrade...</p>
+    <div class="spinner"></div>
+    <p style="font-size: 14px; margin-top: 30px;">
+      If you are not automatically redirected, please click below:
+    </p>
+    <a href="https://biggrade0.base44.app" class="button">Go to BigGrade</a>
   </div>
-
+  
   <script>
-    let pendingAuthUrl = null;
-    
-    function showLoading() {
-      document.getElementById('loading').style.display = 'block';
-      document.getElementById('auth-message').style.display = 'none';
-      document.getElementById('app-frame').style.display = 'none';
-    }
-    
-    function showAuthMessage() {
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('auth-message').style.display = 'block';
-      document.getElementById('app-frame').style.display = 'none';
-    }
-    
-    function showApp() {
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('auth-message').style.display = 'none';
-      document.getElementById('app-frame').style.display = 'block';
-    }
-    
-    function proceedToAuth() {
-      if (pendingAuthUrl) {
-        // Navigate the top-level window to the OAuth URL
-        window.top.location.href = pendingAuthUrl;
-      }
-    }
-    
-    function cancelAuth() {
-      pendingAuthUrl = null;
-      showApp();
-    }
-    
-    // Listen for navigation attempts from the iframe
-    window.addEventListener('message', (event) => {
-      // Only accept messages from the Base44 app
-      if (event.origin !== 'https://biggrade0.base44.app') {
-        return;
-      }
-      
-      try {
-        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        
-        // Check if this is an OAuth navigation request
-        if (data.type === 'oauth-navigation' && data.url) {
-          pendingAuthUrl = data.url;
-          showAuthMessage();
-        }
-      } catch (e) {
-        // Ignore parsing errors
-      }
-    });
-    
-    // Monitor iframe for OAuth attempts by checking URL changes
-    const frame = document.getElementById('app-frame');
-    
-    frame.addEventListener('load', () => {
-      console.log('Frame loaded');
-      
-      // Try to detect OAuth navigation
-      try {
-        const frameUrl = frame.contentWindow.location.href;
-        console.log('Frame URL:', frameUrl);
-        
-        // If we can access the URL and it's not Google, show the app
-        if (frameUrl && !frameUrl.includes('accounts.google.com')) {
-          setTimeout(() => showApp(), 500);
-        }
-      } catch (e) {
-        // Cross-origin - assume it loaded successfully
-        console.log('Frame loaded (cross-origin)');
-        setTimeout(() => showApp(), 500);
-      }
-    });
-    
-    // Handle OAuth callback
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('code') || urlParams.has('state')) {
-      // This is an OAuth callback - redirect to the Base44 app with the params
-      console.log('OAuth callback detected, redirecting to Base44 app');
-      const callbackUrl = 'https://biggrade0.base44.app' + window.location.search + window.location.hash;
-      window.location.href = callbackUrl;
-    } else {
-      // Normal load
-      showLoading();
-    }
-    
-    // Fallback: if loading takes too long, show the app anyway
+    // Immediate redirect
     setTimeout(() => {
-      if (document.getElementById('loading').style.display !== 'none') {
-        showApp();
-      }
-    }, 5000);
+      window.location.href = 'https://biggrade0.base44.app';
+    }, 100);
   </script>
 </body>
 </html>
