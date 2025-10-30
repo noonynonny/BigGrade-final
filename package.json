@@ -2,18 +2,34 @@
   "name": "biggrade-final",
   "version": "1.0.0",
   "description": "BigGrade project - Base44 embed with Netlify hosting",
-  "main": "public/index.html",
+  "main": "server.js",
   "scripts": {
-    "start": "http-server . -p 8080 -c-1 -o",
-    "dev": "http-server public -p 8080 -c-1 -o",
-    "build": "echo 'Static site - no build needed'",
-    "serve": "npx serve public -l 3000"
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo 'No build needed'"
   },
-  "keywords": ["base44", "embed", "netlify"],
+  "keywords": [
+    "base44",
+    "embed",
+    "netlify"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "http-server": "^14.1.1",
     "serve": "^14.2.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noonynonny/BigGrade-final.git"
+  },
+  "bugs": {
+    "url": "https://github.com/noonynonny/BigGrade-final/issues"
+  },
+  "homepage": "https://github.com/noonynonny/BigGrade-final#readme",
+  "dependencies": {
+    "cheerio": "^1.1.2",
+    "express": "^5.1.0",
+    "http-proxy-middleware": "^3.0.5"
   }
 }
