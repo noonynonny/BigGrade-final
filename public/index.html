@@ -29,14 +29,21 @@
       display: block;
     }
     
-    /* Dynamic overlay that only shows when Base44 branding is detected */
+    /* Overlay that matches BigGrade's dark gradient background */
     .branding-cover {
       position: fixed;
       bottom: 0;
       right: 0;
-      width: 250px;
-      height: 100px;
-      background: linear-gradient(to top, white 0%, white 70%, transparent 100%);
+      width: 300px;
+      height: 120px;
+      /* Match BigGrade's dark purple/blue gradient */
+      background: linear-gradient(
+        to top, 
+        #1a1a2e 0%, 
+        #16213e 30%,
+        #0f1624 60%,
+        transparent 100%
+      );
       z-index: 9999;
       pointer-events: none;
       opacity: 0;
@@ -57,7 +64,7 @@
     allowfullscreen
   ></iframe>
   
-  <!-- Dynamic overlay that appears only when Base44 branding is detected -->
+  <!-- Overlay that blends with BigGrade's dark gradient -->
   <div class="branding-cover" id="branding-cover"></div>
   
   <script>
@@ -65,11 +72,10 @@
     const cover = document.getElementById('branding-cover');
     
     let hideTimer = null;
-    let brandingCheckInterval = null;
     
     // Try to inject CSS to prevent Base44 branding from appearing
     iframe.addEventListener('load', () => {
-      console.log('Iframe loaded');
+      console.log('Iframe loaded - attempting to prevent Base44 branding');
       
       try {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
@@ -77,7 +83,7 @@
         // Inject CSS immediately to prevent branding from showing
         const style = iframeDoc.createElement('style');
         style.textContent = `
-          /* Prevent Base44 branding from appearing */
+          /* Aggressively prevent Base44 branding from appearing */
           [class*="base44"],
           [id*="base44"],
           [class*="Base44"],
@@ -86,64 +92,66 @@
           a[href*="base44.com"],
           button[class*="edit"],
           button[class*="remix"],
+          button[class*="Edit"],
+          button[class*="Remix"],
           div[class*="branding"],
           div[class*="watermark"],
+          div[class*="powered"],
+          div[class*="made-with"],
           .powered-by,
-          .made-with {
+          .made-with,
+          [aria-label*="base44"],
+          [aria-label*="Base44"],
+          [title*="base44"],
+          [title*="Base44"],
+          /* Target common positions */
+          body > div:last-child:not([class*="app"]):not([id*="root"]),
+          body > a:last-child,
+          /* Target fixed/absolute positioned elements in bottom corners */
+          div[style*="position: fixed"][style*="bottom"],
+          div[style*="position: absolute"][style*="bottom"] {
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
             pointer-events: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
           }
         `;
         iframeDoc.head.appendChild(style);
         
-        console.log('✅ Injected CSS to prevent Base44 branding');
+        console.log('✅ Successfully injected CSS to prevent Base44 branding');
         
-        // Check if branding still appears despite CSS injection
+        // Monitor for branding elements that might still appear
         setTimeout(() => {
-          checkForBranding(iframeDoc);
-        }, 1000);
+          const brandingElements = iframeDoc.querySelectorAll(
+            '[class*="base44"], [id*="base44"], a[href*="base44"]'
+          );
+          
+          if (brandingElements.length > 0) {
+            console.log(`⚠️ Found ${brandingElements.length} Base44 elements despite CSS - showing overlay`);
+            showCoverWithTimer();
+            
+            // Try to remove them directly
+            brandingElements.forEach(el => {
+              el.remove();
+            });
+          } else {
+            console.log('✅ No Base44 branding detected - CSS prevention successful');
+          }
+        }, 2000);
         
       } catch (error) {
         // Cross-origin - can't inject CSS
-        console.log('Cannot inject CSS (cross-origin) - will use overlay if needed');
+        console.log('❌ Cannot inject CSS (cross-origin) - will use overlay as fallback');
         
-        // Start monitoring for branding
-        startBrandingMonitoring();
+        // Show overlay after delay (Base44 typically loads branding after 2-3 seconds)
+        setTimeout(() => {
+          showCoverWithTimer();
+        }, 3000);
       }
     });
-    
-    function startBrandingMonitoring() {
-      // Check for branding after a delay (Base44 typically loads branding after page load)
-      setTimeout(() => {
-        // Show overlay preemptively (Base44 branding usually appears)
-        showCoverWithTimer();
-      }, 3000);
-    }
-    
-    function checkForBranding(iframeDoc) {
-      try {
-        // Look for Base44 branding elements
-        const brandingElements = iframeDoc.querySelectorAll(
-          '[class*="base44"], [id*="base44"], ' +
-          '[class*="Base44"], [id*="Base44"], ' +
-          'a[href*="base44"], button[class*="edit"], ' +
-          'button[class*="remix"]'
-        );
-        
-        if (brandingElements.length > 0) {
-          console.log('Base44 branding detected despite CSS injection');
-          showCoverWithTimer();
-        } else {
-          console.log('No Base44 branding detected - CSS injection successful');
-        }
-      } catch (error) {
-        // Can't access iframe - assume branding might be present
-        console.log('Cannot check for branding (cross-origin)');
-        showCoverWithTimer();
-      }
-    }
     
     function showCoverWithTimer() {
       // Clear any existing timer
@@ -153,22 +161,19 @@
       
       // Show the cover
       cover.classList.add('visible');
-      console.log('Showing branding cover');
+      console.log('📍 Showing branding cover (blends with dark gradient)');
       
-      // Hide after 15 seconds
+      // Hide after 7 seconds
       hideTimer = setTimeout(() => {
         cover.classList.remove('visible');
-        console.log('Hiding branding cover after 15 seconds');
-      }, 15000);
+        console.log('✅ Hiding branding cover after 7 seconds');
+      }, 7000);
     }
     
     // Clean up on page unload
     window.addEventListener('beforeunload', () => {
       if (hideTimer) {
         clearTimeout(hideTimer);
-      }
-      if (brandingCheckInterval) {
-        clearInterval(brandingCheckInterval);
       }
     });
   </script>
