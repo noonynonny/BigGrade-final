@@ -65,19 +65,34 @@
       100% { transform: rotate(360deg); }
     }
     
-    .error-message {
+    .message-box {
       display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       text-align: center;
       color: white;
       font-size: 16px;
-      max-width: 400px;
-      padding: 20px;
+      max-width: 500px;
+      padding: 30px;
       background: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
+      border-radius: 12px;
       backdrop-filter: blur(10px);
+      z-index: 100;
     }
     
-    .retry-button, .direct-button {
+    .message-box h3 {
+      margin-bottom: 15px;
+      font-size: 22px;
+    }
+    
+    .message-box p {
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    
+    .button {
       margin: 10px;
       padding: 12px 24px;
       background: rgba(255, 255, 255, 0.2);
@@ -87,31 +102,22 @@
       cursor: pointer;
       font-size: 14px;
       transition: all 0.3s;
+      text-decoration: none;
+      display: inline-block;
     }
     
-    .retry-button:hover, .direct-button:hover {
+    .button:hover {
       background: white;
       color: #667eea;
     }
     
-    .instructions {
-      margin-top: 30px;
-      padding: 20px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      backdrop-filter: blur(10px);
-      max-width: 500px;
+    .button-primary {
+      background: white;
+      color: #667eea;
     }
     
-    .instructions h3 {
-      color: white;
-      margin-bottom: 10px;
-    }
-    
-    .instructions p {
-      color: rgba(255, 255, 255, 0.9);
-      line-height: 1.6;
-      margin-bottom: 10px;
+    .button-primary:hover {
+      background: rgba(255, 255, 255, 0.9);
     }
   </style>
 <script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
@@ -123,190 +129,116 @@
       <div>Loading BigGrade...</div>
     </div>
     
-    <div class="error-message" id="error-message">
-      <h3>Authentication Required</h3>
-      <p>Google authentication doesn't work properly in an iframe. Please choose an option below:</p>
-      <button class="direct-button" onclick="openDirect()">Open BigGrade in New Tab</button>
-      <button class="retry-button" onclick="retryLoad()">Try Embed Again</button>
+    <div class="message-box" id="auth-message">
+      <h3>🔐 Authentication Required</h3>
+      <p>To sign in with Google, we need to temporarily redirect you to complete the authentication process.</p>
+      <p>You'll be redirected back here automatically after signing in.</p>
+      <button class="button button-primary" onclick="proceedToAuth()">Continue to Sign In</button>
+      <button class="button" onclick="cancelAuth()">Cancel</button>
     </div>
     
     <iframe 
       id="app-frame" 
       src="https://biggrade0.base44.app"
-      sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation-by-user-activation"
+      sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation allow-top-navigation-by-user-activation"
       allow="camera; microphone; clipboard-read; clipboard-write; fullscreen; payment; geolocation"
       style="display: none;"
     ></iframe>
-    
-    <div class="instructions" id="instructions" style="display: none;">
-      <h3>Welcome to BigGrade</h3>
-      <p>This wrapper provides a seamless experience for the BigGrade application.</p>
-      <p>For the best experience with Google authentication, we recommend opening BigGrade directly.</p>
-      <button class="direct-button" onclick="openDirect()">Launch BigGrade</button>
-      <button class="retry-button" onclick="retryLoad()">Continue in Wrapper</button>
-    </div>
   </div>
 
   <script>
-    let loadTimeout;
-    let retryCount = 0;
-    const maxRetries = 3;
-    let googleOAuthDetected = false;
+    let pendingAuthUrl = null;
     
     function showLoading() {
       document.getElementById('loading').style.display = 'block';
-      document.getElementById('error-message').style.display = 'none';
-      document.getElementById('instructions').style.display = 'none';
+      document.getElementById('auth-message').style.display = 'none';
+      document.getElementById('app-frame').style.display = 'none';
     }
     
-    function showError() {
+    function showAuthMessage() {
       document.getElementById('loading').style.display = 'none';
-      document.getElementById('error-message').style.display = 'block';
-      document.getElementById('instructions').style.display = 'none';
-    }
-    
-    function showInstructions() {
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('error-message').style.display = 'none';
-      document.getElementById('instructions').style.display = 'block';
+      document.getElementById('auth-message').style.display = 'block';
+      document.getElementById('app-frame').style.display = 'none';
     }
     
     function showApp() {
       document.getElementById('loading').style.display = 'none';
-      document.getElementById('error-message').style.display = 'none';
-      document.getElementById('instructions').style.display = 'none';
+      document.getElementById('auth-message').style.display = 'none';
       document.getElementById('app-frame').style.display = 'block';
     }
     
-    function openDirect() {
-      window.open('https://biggrade0.base44.app', '_blank');
-    }
-    
-    function retryLoad() {
-      if (retryCount < maxRetries) {
-        retryCount++;
-        showLoading();
-        const frame = document.getElementById('app-frame');
-        frame.src = frame.src; // Force reload
-        setupFrameMonitoring();
-      } else {
-        showInstructions();
+    function proceedToAuth() {
+      if (pendingAuthUrl) {
+        // Navigate the top-level window to the OAuth URL
+        window.top.location.href = pendingAuthUrl;
       }
     }
     
-    function setupFrameMonitoring() {
-      const frame = document.getElementById('app-frame');
-      
-      // Clear any existing timeout
-      if (loadTimeout) {
-        clearTimeout(loadTimeout);
-      }
-      
-      // Set a timeout for loading
-      loadTimeout = setTimeout(() => {
-        console.warn('Frame loading timeout');
-        if (retryCount < maxRetries) {
-          retryLoad();
-        } else {
-          showInstructions();
-        }
-      }, 15000); // 15 second timeout
-      
-      frame.addEventListener('load', () => {
-        console.log('Frame loaded successfully');
-        clearTimeout(loadTimeout);
-        
-        // Wait a moment for the content to render
-        setTimeout(() => {
-          try {
-            // Check if the frame has content
-            const frameDoc = frame.contentDocument || frame.contentWindow.document;
-            if (frameDoc && frameDoc.body && frameDoc.body.children.length > 0) {
-              showApp();
-            } else {
-              console.warn('Frame appears to be empty');
-              retryLoad();
-            }
-          } catch (e) {
-            // Cross-origin restrictions - assume it loaded if we got here
-            console.log('Frame loaded (cross-origin, cannot inspect content)');
-            showApp();
-          }
-        }, 1000);
-      });
-      
-      frame.addEventListener('error', (e) => {
-        console.error('Frame loading error:', e);
-        clearTimeout(loadTimeout);
-        showError();
-      });
+    function cancelAuth() {
+      pendingAuthUrl = null;
+      showApp();
     }
     
-    // Monitor for OAuth-related errors
+    // Listen for navigation attempts from the iframe
     window.addEventListener('message', (event) => {
+      // Only accept messages from the Base44 app
+      if (event.origin !== 'https://biggrade0.base44.app') {
+        return;
+      }
+      
       try {
-        if (typeof event.data === 'string') {
-          // Check for Google OAuth error messages
-          if (event.data.includes('accounts.google.com') || 
-              event.data.includes('google') || 
-              event.data.includes('oauth')) {
-            console.log('Google OAuth related message detected:', event.data);
-            googleOAuthDetected = true;
-            clearTimeout(loadTimeout);
-            setTimeout(() => {
-              if (googleOAuthDetected) {
-                showInstructions();
-              }
-            }, 2000);
-          }
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        
+        // Check if this is an OAuth navigation request
+        if (data.type === 'oauth-navigation' && data.url) {
+          pendingAuthUrl = data.url;
+          showAuthMessage();
         }
       } catch (e) {
         // Ignore parsing errors
       }
     });
     
-    // Prevent common Base44 conflicts
-    window.addEventListener('error', (e) => {
-      // Suppress specific Base44-related errors that don't affect functionality
-      if (e.message && (
-        e.message.includes('recorder') ||
-        e.message.includes('message port') ||
-        e.message.includes('insertBefore') ||
-        e.message.includes('accounts.google.com') ||
-        e.message.includes('google')
-      )) {
-        e.preventDefault();
-        console.warn('Suppressed error:', e.message);
-        
-        // If it's a Google OAuth error, show instructions
-        if (e.message.includes('google') || e.message.includes('accounts.google.com')) {
-          googleOAuthDetected = true;
-          setTimeout(() => {
-            if (googleOAuthDetected) {
-              showInstructions();
-            }
-          }, 1000);
-        }
-      }
-    }, true);
+    // Monitor iframe for OAuth attempts by checking URL changes
+    const frame = document.getElementById('app-frame');
     
-    // Override some problematic global functions that might interfere
-    if (typeof window.recorder === 'undefined') {
-      window.recorder = null;
+    frame.addEventListener('load', () => {
+      console.log('Frame loaded');
+      
+      // Try to detect OAuth navigation
+      try {
+        const frameUrl = frame.contentWindow.location.href;
+        console.log('Frame URL:', frameUrl);
+        
+        // If we can access the URL and it's not Google, show the app
+        if (frameUrl && !frameUrl.includes('accounts.google.com')) {
+          setTimeout(() => showApp(), 500);
+        }
+      } catch (e) {
+        // Cross-origin - assume it loaded successfully
+        console.log('Frame loaded (cross-origin)');
+        setTimeout(() => showApp(), 500);
+      }
+    });
+    
+    // Handle OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('code') || urlParams.has('state')) {
+      // This is an OAuth callback - redirect to the Base44 app with the params
+      console.log('OAuth callback detected, redirecting to Base44 app');
+      const callbackUrl = 'https://biggrade0.base44.app' + window.location.search + window.location.hash;
+      window.location.href = callbackUrl;
+    } else {
+      // Normal load
+      showLoading();
     }
     
-    // Initialize frame monitoring
-    document.addEventListener('DOMContentLoaded', () => {
-      showLoading();
-      setupFrameMonitoring();
-      
-      // Show instructions after a delay to give users the option
-      setTimeout(() => {
-        if (!googleOAuthDetected && document.getElementById('loading').style.display !== 'none') {
-          showInstructions();
-        }
-      }, 10000); // 10 seconds
-    });
+    // Fallback: if loading takes too long, show the app anyway
+    setTimeout(() => {
+      if (document.getElementById('loading').style.display !== 'none') {
+        showApp();
+      }
+    }, 5000);
   </script>
 </body>
 </html>
