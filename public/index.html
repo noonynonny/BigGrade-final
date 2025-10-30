@@ -24,9 +24,17 @@
       display: block;
     }
   </style>
+  
+  <!-- Polyfill for Safari -->
+  <script src="https://unpkg.com/@ungap/custom-elements-builtin"></script>
+  
+  <!-- X-Frame-Bypass module -->
+  <script type="module" src="https://unpkg.com/x-frame-bypass"></script>
 </head>
 <body>
+  <!-- Using X-Frame-Bypass custom element -->
   <iframe 
+    is="x-frame-bypass"
     src="https://biggrade0.base44.app"
     allow="camera; microphone; clipboard-read; clipboard-write; fullscreen; payment; geolocation"
     allowfullscreen
