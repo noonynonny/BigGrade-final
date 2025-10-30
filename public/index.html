@@ -19,6 +19,7 @@
     
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      position: relative;
     }
     
     iframe {
@@ -28,138 +29,45 @@
       display: block;
     }
     
-    .auth-overlay {
+    /* Overlay to cover Base44 branding */
+    .branding-cover {
       position: fixed;
-      top: 0;
+      bottom: 0;
+      right: 0;
+      width: 200px;
+      height: 80px;
+      background: white;
+      z-index: 9999;
+      pointer-events: none;
+    }
+    
+    /* Alternative: cover the entire bottom-right corner */
+    .corner-cover {
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      width: 250px;
+      height: 100px;
+      background: linear-gradient(to top, white 0%, white 70%, transparent 100%);
+      z-index: 9999;
+      pointer-events: none;
+    }
+    
+    /* Cover bottom bar if Base44 has one */
+    .bottom-bar-cover {
+      position: fixed;
+      bottom: 0;
       left: 0;
       right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-    }
-    
-    .auth-overlay.show {
-      display: flex;
-    }
-    
-    .auth-card {
+      height: 60px;
       background: white;
-      border-radius: 16px;
-      padding: 40px;
-      max-width: 400px;
-      text-align: center;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    }
-    
-    .auth-card h2 {
-      color: #1a202c;
-      margin-bottom: 16px;
-      font-size: 24px;
-    }
-    
-    .auth-card p {
-      color: #718096;
-      margin-bottom: 24px;
-      line-height: 1.6;
-    }
-    
-    .auth-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 14px 28px;
-      background: white;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      color: #1a202c;
-      cursor: pointer;
-      transition: all 0.2s;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    .auth-button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-    
-    .google-icon {
-      width: 20px;
-      height: 20px;
-    }
-    
-    .close-button {
-      background: #e2e8f0;
-      color: #4a5568;
-      margin-top: 16px;
-      border: none;
-    }
-    
-    .loading {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      z-index: 9999;
-    }
-    
-    .loading.hide {
-      display: none;
-    }
-    
-    .spinner {
-      width: 50px;
-      height: 50px;
-      border: 4px solid #e2e8f0;
-      border-top-color: #667eea;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    
-    .loading p {
-      margin-top: 16px;
-      color: #4a5568;
-      font-size: 14px;
+      z-index: 9998;
+      pointer-events: none;
+      display: none; /* Enable if needed */
     }
   </style>
 </head>
 <body>
-  <div class="auth-overlay" id="auth-overlay">
-    <div class="auth-card">
-      <h2>Sign In Required</h2>
-      <p>To use BigGrade, you need to sign in with your Google account. A popup window will open for secure authentication.</p>
-      
-      <button class="auth-button" onclick="openAuthPopup()">
-        <svg class="google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-        </svg>
-        Continue with Google
-      </button>
-      
-      <button class="auth-button close-button" onclick="closeAuthOverlay()">
-        Maybe Later
-      </button>
-    </div>
-  </div>
-  
-  <div class="loading" id="loading">
-    <div class="spinner"></div>
-    <p>Loading BigGrade...</p>
-  </div>
-  
   <iframe 
     id="app-iframe"
     src="https://biggrade0.base44.app"
@@ -167,140 +75,70 @@
     allow="camera; microphone; clipboard-read; clipboard-write; fullscreen; payment; geolocation; storage-access"
     allowfullscreen
   ></iframe>
-
+  
+  <!-- Overlay to cover Base44 branding -->
+  <div class="corner-cover"></div>
+  
   <script>
     const iframe = document.getElementById('app-iframe');
-    const loading = document.getElementById('loading');
-    const authOverlay = document.getElementById('auth-overlay');
     
-    let authPopup = null;
-    let checkAuthInterval = null;
-    
-    // Hide loading after iframe loads
+    // Try to inject CSS into iframe to hide Base44 elements
     iframe.addEventListener('load', () => {
-      setTimeout(() => {
-        loading.classList.add('hide');
-      }, 1000);
-    });
-    
-    // Monitor iframe for OAuth attempts
-    let lastUrl = '';
-    setInterval(() => {
       try {
-        const currentUrl = iframe.contentWindow.location.href;
-        if (currentUrl !== lastUrl) {
-          lastUrl = currentUrl;
-          
-          // Check if trying to navigate to Google OAuth
-          if (currentUrl.includes('accounts.google.com')) {
-            console.log('OAuth attempt detected!');
-            // Show auth overlay
-            authOverlay.classList.add('show');
+        // Attempt to access iframe document (will fail due to cross-origin)
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        
+        // Inject CSS to hide Base44 branding
+        const style = iframeDoc.createElement('style');
+        style.textContent = `
+          /* Hide Base44 branding elements */
+          [class*="base44"],
+          [id*="base44"],
+          [class*="Base44"],
+          [id*="Base44"],
+          a[href*="base44.app"],
+          a[href*="base44.com"],
+          button[class*="edit"],
+          button[class*="remix"],
+          div[class*="branding"],
+          div[class*="watermark"],
+          .powered-by,
+          .made-with {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
           }
-        }
-      } catch (e) {
-        // Cross-origin, can't access - this is expected
-      }
-    }, 500);
-    
-    function openAuthPopup() {
-      // Open Base44 in a popup for authentication
-      const width = 600;
-      const height = 700;
-      const left = (screen.width / 2) - (width / 2);
-      const top = (screen.height / 2) - (height / 2);
-      
-      authPopup = window.open(
-        'https://biggrade0.base44.app',
-        'BigGradeAuth',
-        `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,location=no`
-      );
-      
-      if (!authPopup) {
-        alert('Please allow popups for this site to sign in');
-        return;
-      }
-      
-      // Monitor the popup
-      checkAuthInterval = setInterval(checkAuthStatus, 1000);
-      
-      // Close overlay
-      authOverlay.classList.remove('show');
-    }
-    
-    function checkAuthStatus() {
-      // Check if popup is closed
-      if (authPopup && authPopup.closed) {
-        clearInterval(checkAuthInterval);
-        console.log('Popup closed, checking authentication...');
-        
-        // Reload iframe to check if authenticated
-        setTimeout(() => {
-          iframe.src = iframe.src;
-        }, 500);
-        
-        return;
-      }
-      
-      // Try to check if popup is authenticated
-      try {
-        const popupUrl = authPopup.location.href;
-        
-        // If we can access the URL and it's not login page, user is authenticated
-        if (!popupUrl.includes('login') && popupUrl.includes('biggrade0.base44.app')) {
-          console.log('✅ Authentication detected!');
           
-          // Close popup
-          authPopup.close();
-          clearInterval(checkAuthInterval);
-          
-          // Reload iframe with authenticated session
-          setTimeout(() => {
-            iframe.src = iframe.src;
-          }, 500);
-        }
-      } catch (e) {
-        // Cross-origin, can't check - this is normal during OAuth flow
-      }
-    }
-    
-    function closeAuthOverlay() {
-      authOverlay.classList.remove('show');
-    }
-    
-    // Listen for messages from iframe
-    window.addEventListener('message', (event) => {
-      if (event.origin === 'https://biggrade0.base44.app') {
-        if (event.data.type === 'auth-required') {
-          authOverlay.classList.add('show');
-        } else if (event.data.type === 'authenticated') {
-          authOverlay.classList.remove('show');
-        }
+          /* Hide elements in bottom-right corner */
+          body > div:last-child,
+          body > a:last-child {
+            display: none !important;
+          }
+        `;
+        iframeDoc.head.appendChild(style);
+        
+        console.log('✅ Successfully injected CSS to hide Base44 branding');
+      } catch (error) {
+        // Cross-origin restriction - expected
+        // The CSS overlay will handle hiding the branding instead
+        console.log('Using CSS overlay to hide branding (cross-origin restriction)');
       }
     });
     
-    // Detect OAuth errors in console and show auth overlay
-    window.addEventListener('error', (event) => {
-      if (event.message && event.message.includes('accounts.google.com')) {
-        console.log('OAuth error detected, showing auth overlay');
-        setTimeout(() => {
-          authOverlay.classList.add('show');
-        }, 1000);
-      }
-    });
+    // Monitor iframe and adjust cover position if needed
+    function adjustCoverPosition() {
+      const cover = document.querySelector('.corner-cover');
+      
+      // You can adjust these values based on where the Base44 button appears
+      // Check the browser inspector to see the exact position
+      
+      // Example: If button is in bottom-left instead
+      // cover.style.right = 'auto';
+      // cover.style.left = '0';
+    }
     
-    // Show auth overlay after 3 seconds if still on login page
-    setTimeout(() => {
-      try {
-        const url = iframe.contentWindow.location.href;
-        if (url.includes('login')) {
-          authOverlay.classList.add('show');
-        }
-      } catch (e) {
-        // Can't check, assume might need auth
-        // Don't show overlay automatically to avoid annoying users
-      }
-    }, 3000);
+    // Call on load
+    window.addEventListener('load', adjustCoverPosition);
   </script>
 </body>
 </html>
