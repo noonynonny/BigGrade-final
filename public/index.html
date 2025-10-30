@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="0;url=https://biggrade0.base44.app">
-  <title>BigGrade - Redirecting...</title>
+  <title>BigGrade</title>
   <style>
     * {
       margin: 0;
@@ -15,100 +14,124 @@
     html, body {
       width: 100%;
       height: 100%;
+      overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
     
-    .container {
-      text-align: center;
-      color: white;
-      max-width: 500px;
-      padding: 40px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 16px;
-      backdrop-filter: blur(10px);
+    #app-frame {
+      width: 100vw;
+      height: 100vh;
+      border: none;
+      display: block;
+      background: white;
     }
     
-    .logo {
-      width: 80px;
+    /* Hide the Base44 "Edit with Base44" button */
+    iframe::after {
+      content: '';
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      width: 200px;
       height: 80px;
       background: white;
-      border-radius: 16px;
-      margin: 0 auto 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 40px;
-      font-weight: bold;
-      color: #667eea;
-    }
-    
-    h1 {
-      font-size: 32px;
-      margin-bottom: 15px;
-    }
-    
-    p {
-      font-size: 16px;
-      line-height: 1.6;
-      margin-bottom: 30px;
-      opacity: 0.9;
-    }
-    
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-top: 4px solid white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 20px;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    .button {
-      display: inline-block;
-      padding: 14px 32px;
-      background: white;
-      color: #667eea;
-      text-decoration: none;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 16px;
-      transition: all 0.3s;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-    
-    .button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+      z-index: 9999;
+      pointer-events: none;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="logo">B</div>
-    <h1>Welcome to BigGrade</h1>
-    <p>Redirecting you to BigGrade...</p>
-    <div class="spinner"></div>
-    <p style="font-size: 14px; margin-top: 30px;">
-      If you are not automatically redirected, please click below:
-    </p>
-    <a href="https://biggrade0.base44.app" class="button">Go to BigGrade</a>
-  </div>
-  
+  <iframe 
+    id="app-frame" 
+    src="https://biggrade0.base44.app"
+    sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation"
+    allow="camera; microphone; clipboard-read; clipboard-write; fullscreen; payment; geolocation"
+  ></iframe>
+
   <script>
-    // Immediate redirect
-    setTimeout(() => {
-      window.location.href = 'https://biggrade0.base44.app';
+    const frame = document.getElementById('app-frame');
+    let isReturningFromOAuth = false;
+    
+    // Check if we're returning from an OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('code') || urlParams.has('state') || urlParams.has('from_oauth')) {
+      // We're returning from OAuth - load the Base44 app with these params
+      isReturningFromOAuth = true;
+      const targetUrl = 'https://biggrade0.base44.app' + window.location.search + window.location.hash;
+      frame.src = targetUrl;
+      
+      // Clean up the URL in the address bar after a moment
+      setTimeout(() => {
+        window.history.replaceState({}, document.title, '/');
+      }, 1000);
+    }
+    
+    // Inject CSS to hide Base44 branding elements
+    frame.addEventListener('load', () => {
+      try {
+        // Try to inject CSS to hide the "Edit with Base44" button
+        const styleElement = frame.contentDocument.createElement('style');
+        styleElement.textContent = `
+          /* Hide Base44 branding */
+          [class*="base44"],
+          [id*="base44"],
+          [class*="remix"],
+          [id*="remix"],
+          a[href*="base44.com"],
+          button:has-text("Edit with Base44"),
+          div[style*="position: fixed"][style*="bottom"],
+          div[style*="position: fixed"][style*="right"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+          }
+          
+          /* Hide any floating buttons in bottom right */
+          body > div:last-child {
+            display: none !important;
+          }
+        `;
+        frame.contentDocument.head.appendChild(styleElement);
+      } catch (e) {
+        // Cross-origin restriction - can't inject CSS
+        console.log('Cannot inject CSS due to cross-origin restrictions');
+      }
+    });
+    
+    // Monitor for navigation to Google OAuth
+    let checkInterval = setInterval(() => {
+      try {
+        const frameUrl = frame.contentWindow.location.href;
+        
+        // If the iframe navigated to Google OAuth, break out to top level
+        if (frameUrl.includes('accounts.google.com')) {
+          clearInterval(checkInterval);
+          // Add a flag so we know to return to iframe mode
+          const oauthUrl = frameUrl + (frameUrl.includes('?') ? '&' : '?') + 'from_oauth=true';
+          window.location.href = oauthUrl;
+        }
+      } catch (e) {
+        // Cross-origin error is expected - ignore it
+      }
     }, 100);
+    
+    // Stop checking after 30 seconds
+    setTimeout(() => {
+      clearInterval(checkInterval);
+    }, 30000);
+    
+    // Listen for messages from the iframe
+    window.addEventListener('message', (event) => {
+      if (event.origin !== 'https://biggrade0.base44.app') {
+        return;
+      }
+      
+      // Handle OAuth navigation request
+      if (event.data && event.data.type === 'navigate') {
+        window.location.href = event.data.url;
+      }
+    });
   </script>
 </body>
 </html>
